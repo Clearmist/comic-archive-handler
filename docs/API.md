@@ -85,6 +85,21 @@ const files = await cah.listArchiveFiles(comicBuffer);
 console.log(files); // ['P00001.jpg', 'ComicInfo.xml', ...]
 ```
 
+### `readArchiveEntry(input, entryPath)`
+
+Reads one archive entry and returns its contents as a `Buffer`. Throws `MetadataNotFoundError` when the entry does not exist.
+
+**Options**
+
+- `input: ArchiveInput` - A filesystem path or archive `Buffer`.
+- `entryPath: string` - Exact archive entry path.
+
+**Example**
+
+```js
+const page = await cah.readArchiveEntry(comicBuffer, 'P00001.jpg');
+```
+
 ### `renameArchiveImagesSequentially(input, options?)`
 
 Renames image entries in natural-sort order to `P#####.<extension>`, while leaving other entries unchanged.
