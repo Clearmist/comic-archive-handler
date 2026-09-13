@@ -1,6 +1,6 @@
 {
   "name": "@clearmist-labs/comic-archive-handler",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Detect, convert, and manipulate comic book archives: container conversion, edit metadata, image re-encoding, perceptual + content hashing.",
   "keywords": [
     "7z",
@@ -39,7 +39,8 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.mts",
-      "import": "./dist/index.mjs"
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.mjs"
     },
     "./package.json": "./package.json"
   },
