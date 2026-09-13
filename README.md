@@ -1,5 +1,7 @@
 # @clearmist-labs/comic-archive-handler
 
+[![CI](https://github.com/Clearmist/comic-archive-handler/actions/workflows/ci.yml/badge.svg)](https://github.com/Clearmist/comic-archive-handler/actions/workflows/ci.yml)
+
 A toolkit for detecting, converting, and manipulating comic book archives (CBAS/CBZ/CB7/CBR/CBT/CBA).
 
 - **Detect** archive types and container formats
