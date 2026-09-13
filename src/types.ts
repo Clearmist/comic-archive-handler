@@ -12,9 +12,9 @@ export type ImageOutputFormat = 'webp' | 'jpg' | 'png';
 export interface WebpOptions {
   /** Default 92. */
   quality?: number;
-  /** libwebp's `-m` compression method (0-6). Default 6. */
+  /** Explanation: libwebp's `-m` compression method (0-6). Default 6. */
   effort?: number;
-  /** libwebp's `-sharp_yuv`. Default true. */
+  /** Explanation: libwebp's `-sharp_yuv`. Default true. */
   smartSubsample?: boolean;
 }
 

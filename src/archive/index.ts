@@ -19,9 +19,11 @@ const adapters: Partial<Record<ArchiveType, ArchiveAdapter>> = {
 
 export function getAdapter(type: ArchiveType): ArchiveAdapter {
   const adapter = adapters[type];
+
   if (!adapter) {
     throw new ArchiveFormatError(`No archive adapter is available for type "${type}".`);
   }
+
   return adapter;
 }
 

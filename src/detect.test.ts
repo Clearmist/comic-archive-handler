@@ -10,24 +10,28 @@ function sampleZip(): Buffer {
 describe('detectArchiveType', () => {
   it('detects zip', async () => {
     const zip = sampleZip();
+
     expect(await detectArchiveType(zip)).toBe('zip');
     expect(await isZip(zip)).toBe(true);
   });
 
   it('detects tar', async () => {
     const tar = await convertArchive(sampleZip(), 'tar');
+
     expect(await detectArchiveType(tar as Buffer)).toBe('tar');
     expect(await isTar(tar as Buffer)).toBe(true);
   });
 
   it('detects asar', async () => {
     const asar = await convertArchive(sampleZip(), 'asar');
+
     expect(await detectArchiveType(asar as Buffer)).toBe('asar');
     expect(await isAsar(asar as Buffer)).toBe(true);
   });
 
   it('detects 7z', async () => {
     const sevenZip = await convertArchive(sampleZip(), '7z');
+
     expect(await detectArchiveType(sevenZip as Buffer)).toBe('7z');
     expect(await is7z(sevenZip as Buffer)).toBe(true);
   });
@@ -37,13 +41,16 @@ describe('detectArchiveType', () => {
     // src/archive/ace.ts), so this constructs the minimal magic-byte
     // signature file-type checks for: "**ACE**" at byte offset 7.
     const ace = Buffer.alloc(20);
+
     ace.write('**ACE**', 7, 'ascii');
+
     expect(await detectArchiveType(ace)).toBe('ace');
     expect(await isAce(ace)).toBe(true);
   });
 
   it('returns unknown for garbage bytes', async () => {
     const garbage = Buffer.from([0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09]);
+
     expect(await detectArchiveType(garbage)).toBe('unknown');
     expect(await isRar(garbage)).toBe(false);
   });

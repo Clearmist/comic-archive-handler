@@ -23,9 +23,11 @@ describe('MetronInfo.xml conversion', () => {
 
   it('round-trips through XML', () => {
     const xml = metadataToMetronInfoXml(metadata);
+
     expect(xml).toContain('<MetronInfo>');
 
     const parsed = metronInfoXmlToMetadata(xml);
+
     expect(parsed.series).toBe(metadata.series);
     expect(parsed.seriesSort).toBe(metadata.seriesSort);
     expect(parsed.volume).toBe(metadata.volume);
@@ -44,6 +46,7 @@ describe('MetronInfo.xml conversion', () => {
       credits: [{ name: 'Solo Creator', role: 'Writer' }],
     });
     const parsed = metronInfoXmlToMetadata(xml);
+
     expect(Array.isArray(parsed.genres)).toBe(true);
     expect(parsed.genres).toEqual(['Solo Genre']);
     expect(Array.isArray(parsed.credits)).toBe(true);
@@ -52,6 +55,7 @@ describe('MetronInfo.xml conversion', () => {
 
   it('drops ComicInfo-only fields (lossy by design)', () => {
     const xml = metadataToMetronInfoXml({ title: 'Should be dropped', blackAndWhite: true, manga: 'Yes' });
+
     expect(xml).not.toContain('Should be dropped');
     expect(xml).not.toContain('BlackAndWhite');
     expect(xml).not.toContain('Manga');

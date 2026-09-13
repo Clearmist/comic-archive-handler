@@ -26,10 +26,13 @@ function pickRandomSamples<T>(items: T[], count: number): T[] {
   if (items.length === 0) {
     return [];
   }
+
   const samples: T[] = [];
+
   for (let i = 0; i < count; i++) {
     samples.push(items[Math.floor(Math.random() * items.length)]!);
   }
+
   return samples;
 }
 
@@ -44,10 +47,13 @@ async function averageConvertedImageSize(preConverted: Buffer, imageFormat: Imag
   const imagePaths = entries.filter((entryPath) => isImagePath(entryPath));
 
   let totalBytes = 0;
+
   for (const entryPath of imagePaths) {
     const { size } = await fs.stat(path.join(extractDir, entryPath));
+
     totalBytes += size;
   }
+
   return totalBytes / imagePaths.length;
 }
 
@@ -78,15 +84,19 @@ export async function benchmarkArchive(filePath: string, options: BenchmarkArchi
   const creationIterations = Math.max(1, options.creationIterations ?? 3);
   const seekSamples = Math.max(1, options.seekSamples ?? 10);
   const imageFormats = options.imageFormats ?? BENCHMARK_IMAGE_FORMATS;
+
   if (imageFormats.length === 0) {
     throw new RangeError('options.imageFormats must include at least one image format.');
   }
+
   const unsupportedFormats = imageFormats.filter((format) => !BENCHMARK_IMAGE_FORMATS.includes(format));
+
   if (unsupportedFormats.length > 0) {
     throw new RangeError(
       `Unsupported image format(s): ${unsupportedFormats.join(', ')}. Supported formats: ${BENCHMARK_IMAGE_FORMATS.join(', ')}.`,
     );
   }
+
   const tempDir = await resolveWritableTempDir(options.tempDir);
 
   try {
@@ -95,11 +105,13 @@ export async function benchmarkArchive(filePath: string, options: BenchmarkArchi
     const reportDir = path.join(reportsRoot, timestampForDirName(generatedAt));
     const sourceDir = path.join(reportDir, 'source');
     const archivesDir = path.join(reportDir, 'archives');
+
     await fs.mkdir(archivesDir, { recursive: true });
 
     // Extracted here (not a throwaway tempDir) so the actual source files
     // used for every conversion below are visible alongside the report.
     const extractedPaths = await extractArchive(filePath, sourceDir, { tempDir });
+
     if (!extractedPaths.some((entryPath) => isImagePath(entryPath))) {
       throw new NoImagesFoundError(`Archive "${filePath}" does not contain any image files.`);
     }

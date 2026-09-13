@@ -13,8 +13,9 @@ const hasFixture = fs.existsSync(fixturePath);
 describe('rarAdapter', () => {
   it('refuses to write (creating RAR archives is not supported)', async () => {
     async function* noEntries() {
-      /* empty */
+      /* Empty */
     }
+
     await expect(rarAdapter.write(noEntries(), new PassThrough())).rejects.toThrow(UnsupportedOperationError);
   });
 

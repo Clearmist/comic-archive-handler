@@ -17,6 +17,7 @@ export async function stripNonEssentialFiles(input: ArchiveInput, options: Strip
       if (!keepExtensions.has(getExtension(entry.path))) {
         continue;
       }
+
       yield { path: entry.path, size: entry.size, content: entry.openReadStream() };
     }
   }

@@ -9,20 +9,24 @@ import { locateAsarContentRegion } from './asarContent.js';
 
 async function hashStream(stream: Readable): Promise<string> {
   const hash = createHash('sha256');
+
   for await (const chunk of stream) {
     hash.update(chunk);
   }
+
   return hash.digest('hex');
 }
 
 export async function sha256ArchiveEntry(input: ArchiveInput, entryPath: string): Promise<string> {
   const type = await detectArchiveType(input);
   const adapter = getAdapter(type);
+
   for await (const entry of adapter.listEntries(input)) {
     if (entry.path === entryPath) {
       return hashStream(entry.openReadStream());
     }
   }
+
   throw new MetadataNotFoundError(`No entry named "${entryPath}" was found in the archive.`);
 }
 
@@ -33,10 +37,13 @@ export async function sha256ArchiveEntry(input: ArchiveInput, entryPath: string)
  */
 export async function sha256Archive(input: ArchiveInput): Promise<string> {
   const type = await detectArchiveType(input);
+
   if (type === 'asar') {
     const totalSize = await inputSize(input);
     const { start, end } = await locateAsarContentRegion(input, totalSize);
+
     return hashStream(openInputReadStream(input, { start, end }));
   }
+
   return hashStream(openInputReadStream(input));
 }

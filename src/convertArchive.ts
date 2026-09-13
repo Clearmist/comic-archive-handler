@@ -11,6 +11,7 @@ import { isImagePath, getExtension } from './images/isImage.js';
 
 function replaceExtension(entryPath: string, format: string): string {
   const withoutExt = entryPath.replace(/\.[^./\\]+$/, '');
+
   return `${withoutExt}.${format}`;
 }
 
@@ -20,6 +21,7 @@ export async function convertArchive(
   options: ConvertArchiveOptions = {},
 ): Promise<Buffer | void> {
   const sourceType = await detectArchiveType(input);
+
   if (sourceType === 'unknown') {
     throw new ArchiveFormatError('Could not determine the source archive type.');
   }
@@ -33,6 +35,7 @@ export async function convertArchive(
       if (image && isImagePath(entry.path) && getExtension(entry.path) !== (image.format === 'jpg' ? 'jpg' : image.format)) {
         const buffer = await streamToBuffer(entry.openReadStream());
         const converted = await convertImageBuffer(buffer, image.format, image.options);
+
         yield {
           path: replaceExtension(entry.path, image.format === 'jpg' ? 'jpg' : image.format),
           size: converted.length,

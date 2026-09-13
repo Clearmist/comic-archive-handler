@@ -15,6 +15,7 @@ describe('stripNonEssentialFiles', () => {
     );
     const stripped = (await stripNonEssentialFiles(zip)) as Buffer;
     const files = (await listArchiveFiles(stripped)).sort();
+
     expect(files).toEqual(['ComicInfo.xml', 'page1.jpg']);
   });
 
@@ -27,6 +28,7 @@ describe('stripNonEssentialFiles', () => {
     );
     const stripped = (await stripNonEssentialFiles(zip, { extraKeepExtensions: ['json'] })) as Buffer;
     const files = (await listArchiveFiles(stripped)).sort();
+
     expect(files).toEqual(['metadata.json', 'page1.jpg']);
   });
 });

@@ -32,36 +32,47 @@ interface AsarHeaderNode {
  */
 export async function parseAsarHeader(readRange: (start: number, end: number) => Promise<Buffer>): Promise<AsarHeaderInfo> {
   const prefix = await readRange(0, 8);
+
   if (prefix.length < 8) {
     throw new ArchiveFormatError('File is too small to be a valid asar archive.');
   }
+
   const outerPayloadLength = prefix.readUInt32LE(0);
+
   if (outerPayloadLength !== 4) {
     throw new ArchiveFormatError('Not a valid asar archive (unexpected pickle header).');
   }
+
   const size = prefix.readUInt32LE(4);
   const headerBuf = await readRange(8, 8 + size);
+
   if (headerBuf.length < 8) {
     throw new ArchiveFormatError('Not a valid asar archive (truncated header).');
   }
+
   const stringLength = headerBuf.readUInt32LE(4);
+
   if (8 + stringLength > headerBuf.length) {
     throw new ArchiveFormatError('Not a valid asar archive (truncated header string).');
   }
+
   const headerString = headerBuf.subarray(8, 8 + stringLength).toString('utf8');
 
   let header: AsarHeaderNode;
+
   try {
     header = JSON.parse(headerString) as AsarHeaderNode;
   } catch {
     throw new ArchiveFormatError('Not a valid asar archive (header is not valid JSON).');
   }
+
   if (!header || typeof header !== 'object' || !header.files) {
     throw new ArchiveFormatError('Not a valid asar archive (header has no files index).');
   }
 
   const contentOffset = 8 + size;
   const files: AsarFileEntry[] = [];
+
   collectFiles(header, '', files);
 
   return { header, files, contentOffset };
@@ -71,8 +82,10 @@ function collectFiles(node: AsarHeaderNode, prefix: string, out: AsarFileEntry[]
   if (!node.files) {
     return;
   }
+
   for (const [name, child] of Object.entries(node.files)) {
     const entryPath = prefix ? `${prefix}/${name}` : name;
+
     if (child.files) {
       collectFiles(child, entryPath, out);
     } else if (typeof child.offset === 'string' && typeof child.size === 'number') {
@@ -84,5 +97,6 @@ function collectFiles(node: AsarHeaderNode, prefix: string, out: AsarFileEntry[]
 /** True if the header's file tree contains an entry at the archive root named `name`. */
 export function hasRootFile(header: unknown, name: string): boolean {
   const root = header as AsarHeaderNode;
+
   return Boolean(root?.files?.[name] && !root.files[name]?.files);
 }

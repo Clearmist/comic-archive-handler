@@ -24,9 +24,11 @@ export const asarAdapter: ArchiveAdapter = {
 
   async *listEntries(input) {
     const { files, contentOffset } = await parseAsarHeader((start, end) => readInputRange(input, start, end));
+
     for (const file of files) {
       const start = contentOffset + file.offset;
       const end = start + file.size;
+
       yield {
         path: file.path,
         size: file.size,
@@ -38,14 +40,17 @@ export const asarAdapter: ArchiveAdapter = {
   async write(entries, destination, options) {
     const tempDir = await resolveWritableTempDir(options?.tempDir);
     const stagingDir = path.join(tempDir, 'staging');
+
     await fsp.mkdir(stagingDir, { recursive: true });
 
     try {
       for await (const entry of entries) {
         const target = resolveSafeEntryPath(stagingDir, entry.path);
+
         await fsp.mkdir(path.dirname(target), { recursive: true });
         await new Promise<void>((resolve, reject) => {
           const out = fs.createWriteStream(target);
+
           entry.content.on('error', reject);
           out.on('error', reject);
           out.on('finish', resolve);
@@ -54,10 +59,12 @@ export const asarAdapter: ArchiveAdapter = {
       }
 
       const outputFile = path.join(tempDir, 'output.asar');
+
       await createPackage(stagingDir, outputFile);
 
       await new Promise<void>((resolve, reject) => {
         const readStream = fs.createReadStream(outputFile);
+
         readStream.on('error', reject);
         destination.on('error', reject);
         destination.on('finish', resolve);

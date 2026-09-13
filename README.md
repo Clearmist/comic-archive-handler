@@ -85,20 +85,30 @@ Most runtime exports are available both as named exports and as properties on th
 
 ### Archive containers
 
-| Format | Extension | Detectable | Readable | Writable |
-| ------ | --------- | ---------- | -------- | -------- |
-| Zip    | .cbz      | ✅         | ✅       | ✅       |
-| Asar   | .cbas     | ✅         | ✅       | ✅       |
-| 7z     | .cb7      | ✅         | ✅       | ✅       |
-| Tar    | .cbt      | ✅         | ✅       | ✅       |
-| Rar    | .cbr      | ✅         | ✅       | ❌       |
-| Ace    | .cba      | ✅         | ❌       | ❌       |
+| Format | Extension | Detectable | Readable | Streaming read | Readable<br>without<br>decompression |
+| ------ | --------- | ---------- | -------- | -------------- | ------------------------------------ |
+| Asar   | .cbas     | ✅         | ✅       | ✅             | ✅                                   |
+| Tar    | .cbt      | ✅         | ✅       | ✅             | ✅                                   |
+| Zip    | .cbz      | ✅         | ✅       | ✅             | ❌                                   |
+| 7z     | .cb7      | ✅         | ✅       | ❌             | ❌                                   |
+| Rar    | .cbr      | ✅         | ✅       | ❌             | ❌                                   |
+| Ace    | .cba      | ✅         | ❌       | ❌             | ❌                                   |
 
-Ace is a dead format and should never be used.
+**Ace** is a dead format and should never be used.
 
-Rar is closed sourced. Writing rar files requires commercial software. I strongly suggest not using CBR as your archive choice.
+**Rar** is closed sourced. Writing rar files requires commercial software. I strongly suggest not using CBR as your archive choice.
 
-Asar supports fully streaming reads: individual pages can be pulled out via direct byte-range access without extracting or decompressing the whole archive, making it the fastest option for random page access. This makes it the best choice for remote digital libraries; read and send a single page to a client without extracting the entire archive to disk.
+**7z** has the smallest storage size, but reading and writing have the largest overhead and it's not possible to stream read the contents; the entire archive must first be decompressed.
+
+**Zip** is the most common format and is widely supported, but its random read speed is terrible; even worse than 7z and the file contents must be decompressed before serving.
+
+**Asar** and **Tar** are both similar in that they support read streams without requiring decompression. These are the differences:
+
+- For whole archive streaming Tar is the best.
+- For streaming individual content files Asar is the best.
+- Random file read is poor with Tar and excellent with Asar (6ms vs 1ms).
+
+This means that both are good candidates for remote digital libraries. Asar if the server sends one page at a time; Tar if the server sends the entire archive contents to the client.
 
 ### Page images
 

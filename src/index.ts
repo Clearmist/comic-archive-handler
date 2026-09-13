@@ -11,6 +11,7 @@ export * from './hashing/sha256.js';
 export * from './rename.js';
 export * from './strip.js';
 export * from './listFiles.js';
+export * from './readArchiveEntry.js';
 export * from './benchmark/index.js';
 
 import * as detectApi from './detect.js';
@@ -24,6 +25,7 @@ import { sha256ArchiveEntry, sha256Archive } from './hashing/sha256.js';
 import { renameArchiveImagesSequentially } from './rename.js';
 import { stripNonEssentialFiles } from './strip.js';
 import { listArchiveFiles } from './listFiles.js';
+import { readArchiveEntry } from './readArchiveEntry.js';
 import {
   benchmarkArchive,
   renderBenchmarkReportMarkdown,
@@ -50,6 +52,7 @@ const comicArchiveHandler = {
   renameArchiveImagesSequentially,
   stripNonEssentialFiles,
   listArchiveFiles,
+  readArchiveEntry,
   benchmarkArchive,
   renderBenchmarkReportMarkdown,
   WRITABLE_ARCHIVE_TYPES,

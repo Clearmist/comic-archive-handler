@@ -2,6 +2,7 @@ export const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'ti
 
 export function getExtension(entryPath: string): string {
   const match = /\.([^./\\]+)$/.exec(entryPath);
+
   return match ? match[1]!.toLowerCase() : '';
 }
 

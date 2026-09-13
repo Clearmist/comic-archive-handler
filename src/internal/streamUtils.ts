@@ -1,8 +1,10 @@
 export async function streamToBuffer(stream: AsyncIterable<Buffer | Uint8Array>): Promise<Buffer> {
   const chunks: Buffer[] = [];
+
   for await (const chunk of stream) {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
   }
+
   return Buffer.concat(chunks);
 }
 
@@ -35,15 +37,19 @@ export class AsyncQueue<T> {
         yield this.items.shift() as T;
         continue;
       }
+
       if (this.error) {
         throw this.error;
       }
+
       if (this.done) {
         return;
       }
+
       await new Promise<void>((resolve) => {
         this.waiter = resolve;
       });
+
       this.waiter = null;
     }
   }

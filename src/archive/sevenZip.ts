@@ -20,7 +20,7 @@ async function ensureBinaryAvailable(): Promise<string> {
   try {
     await fsp.access(binPath, fs.constants.X_OK);
   } catch {
-    // npm's tarball extraction doesn't always preserve the executable bit
+    // NPM's tarball extraction doesn't always preserve the executable bit
     // (observed cross-platform/sandbox quirk); self-heal rather than fail.
     try {
       await fsp.chmod(binPath, 0o755);

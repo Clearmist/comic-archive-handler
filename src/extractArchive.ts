@@ -21,14 +21,19 @@ export interface ExtractArchiveOptions {
 export async function extractArchive(input: ArchiveInput, destDir: string, options: ExtractArchiveOptions = {}): Promise<string[]> {
   const type = await detectArchiveType(input);
   const adapter = getAdapter(type);
+
   await fs.promises.mkdir(destDir, { recursive: true });
 
   const written: string[] = [];
+
   for await (const entry of adapter.listEntries(input, { tempDir: options.tempDir })) {
     const target = resolveSafeEntryPath(destDir, entry.path);
+
     await fs.promises.mkdir(path.dirname(target), { recursive: true });
     await pipeline(entry.openReadStream(), fs.createWriteStream(target));
+
     written.push(entry.path);
   }
+
   return written;
 }

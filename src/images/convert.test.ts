@@ -17,6 +17,7 @@ describe('convertImageBuffer', () => {
     const png = await makeTestPng();
     const webp = await convertImageBuffer(png, 'webp');
     const metadata = await sharp(webp).metadata();
+
     expect(metadata.format).toBe('webp');
   });
 
@@ -24,6 +25,7 @@ describe('convertImageBuffer', () => {
     const png = await makeTestPng();
     const jpg = await convertImageBuffer(png, 'jpg');
     const metadata = await sharp(jpg).metadata();
+
     expect(metadata.format).toBe('jpeg');
   });
 
@@ -31,6 +33,7 @@ describe('convertImageBuffer', () => {
     const png = await makeTestPng();
     const highQuality = await convertImageBuffer(png, 'webp', { webp: { quality: 100, effort: 6 } });
     const lowQuality = await convertImageBuffer(png, 'webp', { webp: { quality: 10, effort: 0 } });
+
     expect(highQuality.length).toBeGreaterThan(0);
     expect(lowQuality.length).toBeGreaterThan(0);
   });
@@ -41,6 +44,7 @@ describe('convertImageBuffer', () => {
     const withPalette = await convertImageBuffer(png, 'png', { png: { quality: 10, palette: true } });
     const metaWithout = await sharp(withoutPalette).metadata();
     const metaWith = await sharp(withPalette).metadata();
+
     expect(metaWithout.format).toBe('png');
     expect(metaWith.format).toBe('png');
   });
@@ -50,9 +54,9 @@ describe('convertArchiveImages', () => {
   it('converts every image entry to the target format and renames extensions', async () => {
     const png = await makeTestPng();
     const zip = Buffer.from(zipSync({ 'page1.png': new Uint8Array(png), 'ComicInfo.xml': new Uint8Array(Buffer.from('<ComicInfo/>')) }));
-
     const converted = (await convertArchiveImages(zip, 'webp')) as Buffer;
     const files = await listArchiveFiles(converted);
+
     expect(files).toContain('page1.webp');
     expect(files).toContain('ComicInfo.xml');
     expect(files).not.toContain('page1.png');

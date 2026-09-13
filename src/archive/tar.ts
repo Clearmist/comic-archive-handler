@@ -5,8 +5,8 @@ import { openInputReadStream } from '../internal/inputSource.js';
 import { streamToBuffer } from '../internal/streamUtils.js';
 
 /**
- * tar-stream v3 is built on `streamx`, not Node's native streams; its
- * `extract()` result is directly async-iterable over per-entry streams, and
+ * The tar-stream v3 package is built on `streamx`, not Node's native streams;
+ * its `extract()` result is directly async-iterable over per-entry streams, and
  * both directions interop with Node streams via `.pipe()`. Each entry's
  * content is buffered fully before being yielded — bounded by a single
  * entry's size (one comic page), not the whole archive — since the

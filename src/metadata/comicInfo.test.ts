@@ -24,10 +24,12 @@ describe('ComicInfo.xml conversion', () => {
 
   it('round-trips through XML', () => {
     const xml = metadataToComicInfoXml(metadata);
+
     expect(xml).toContain('<ComicInfo>');
     expect(xml).toContain('<Title>The Amazing Test</Title>');
 
     const parsed = comicInfoXmlToMetadata(xml);
+
     expect(parsed.title).toBe(metadata.title);
     expect(parsed.series).toBe(metadata.series);
     expect(parsed.number).toBe(metadata.number);
@@ -43,18 +45,21 @@ describe('ComicInfo.xml conversion', () => {
   it('keeps a single Page as an array, not a collapsed object', () => {
     const xml = metadataToComicInfoXml({ pages: [{ index: 0 }] });
     const parsed = comicInfoXmlToMetadata(xml);
+
     expect(Array.isArray(parsed.pages)).toBe(true);
     expect(parsed.pages).toHaveLength(1);
   });
 
   it('drops MetronInfo-only fields (lossy by design)', () => {
     const xml = metadataToComicInfoXml({ seriesSort: 'Amazing Test, The', seriesId: 'series-1' });
+
     expect(xml).not.toContain('SortName');
     expect(xml).not.toContain('series-1');
   });
 
   it('writes Tags as a comma-separated string (added in ComicInfo v2.1)', () => {
     const xml = metadataToComicInfoXml({ tags: ['tag1', 'tag2'] });
+
     expect(xml).toContain('<Tags>tag1, tag2</Tags>');
     expect(comicInfoXmlToMetadata(xml).tags).toEqual(['tag1', 'tag2']);
   });

@@ -208,6 +208,7 @@ export function splitCommaList(value?: string): string[] | undefined {
   if (!value) {
     return undefined;
   }
+
   const parts = value
     .split(',')
     .map((part) => part.trim())

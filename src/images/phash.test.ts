@@ -12,6 +12,7 @@ describe('computeImagePHash', () => {
   it('returns a 64-bit value with zero Hamming distance to itself', async () => {
     const image = await solidColor(200, 50, 50);
     const hash = await computeImagePHash(image);
+
     expect(typeof hash).toBe('bigint');
     expect(phashToHex(hash)).toMatch(/^[0-9a-f]{16}$/);
     expect(hammingDistance(hash, hash)).toBe(0);
@@ -23,6 +24,7 @@ describe('computeImagePHash', () => {
 
     const hashA = await computeImagePHash(original);
     const hashB = await computeImagePHash(recompressed);
+
     expect(hammingDistance(hashA, hashB)).toBeLessThanOrEqual(8);
   });
 
@@ -47,6 +49,7 @@ describe('computeImagePHash', () => {
 
     const hashA = await computeImagePHash(imageA);
     const hashB = await computeImagePHash(imageB);
+
     expect(hammingDistance(hashA, hashB)).toBeGreaterThan(8);
   });
 });

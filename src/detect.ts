@@ -13,15 +13,18 @@ const EXT_TO_TYPE: Record<string, ArchiveType> = {
 
 async function detectViaFileType(input: ArchiveInput): Promise<ArchiveType | undefined> {
   const result = isPathInput(input) ? await fileTypeFromFile(input) : await fileTypeFromBuffer(input);
+
   if (!result) {
     return undefined;
   }
+
   return EXT_TO_TYPE[result.ext];
 }
 
 async function looksLikeAsar(input: ArchiveInput): Promise<boolean> {
   try {
     const header = await parseAsarHeader((start, end) => readInputRange(input, start, end));
+
     return Boolean(header.files);
   } catch {
     return false;
@@ -30,12 +33,15 @@ async function looksLikeAsar(input: ArchiveInput): Promise<boolean> {
 
 export async function detectArchiveType(input: ArchiveInput): Promise<ArchiveType> {
   const viaMagicBytes = await detectViaFileType(input);
+
   if (viaMagicBytes) {
     return viaMagicBytes;
   }
+
   if (await looksLikeAsar(input)) {
     return 'asar';
   }
+
   return 'unknown';
 }
 

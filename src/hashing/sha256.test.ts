@@ -13,6 +13,7 @@ describe('sha256ArchiveEntry', () => {
     const content = 'hello world';
     const zip = Buffer.from(zipSync({ 'a.txt': strToU8(content) }));
     const hash = await sha256ArchiveEntry(zip, 'a.txt');
+
     expect(hash).toBe(manualSha256(Buffer.from(content)));
   });
 });
@@ -20,6 +21,7 @@ describe('sha256ArchiveEntry', () => {
 describe('sha256Archive', () => {
   it('matches a manual hash of the whole file for non-asar formats', async () => {
     const zip = Buffer.from(zipSync({ 'a.txt': strToU8('hello') }));
+
     expect(await sha256Archive(zip)).toBe(manualSha256(zip));
   });
 

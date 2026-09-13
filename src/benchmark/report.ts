@@ -4,13 +4,16 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024) {
     return `${Math.round(bytes)} B`;
   }
+
   const units = ['KB', 'MB', 'GB'];
   let value = bytes / 1024;
   let unitIndex = 0;
+
   while (value >= 1024 && unitIndex < units.length - 1) {
     value /= 1024;
     unitIndex += 1;
   }
+
   return `${value.toFixed(2)} ${units[unitIndex]}`;
 }
 
@@ -31,9 +34,12 @@ function topThreeImageFormats(variants: BenchmarkVariantResult[]): BenchmarkVari
       if (seenFormats.has(variant.imageFormat)) {
         return false;
       }
+
       seenFormats.add(variant.imageFormat);
+
       return true;
     });
+
   return oneVariantPerFormat.slice(0, 3);
 }
 
@@ -46,6 +52,7 @@ function renderRankedSection(
   const lines = ranked.map(
     (variant, index) => `${index + 1}. **${variant.fileName}** (${variant.archiveType}/${variant.imageFormat}) — ${format(variant)}`,
   );
+
   return `### ${title}\n\n${description}\n\n${lines.join('\n')}\n`;
 }
 
@@ -53,6 +60,7 @@ function renderImageFormatRankedSection(title: string, description: string, rank
   const lines = ranked.map(
     (variant, index) => `${index + 1}. **${variant.imageFormat}** — ${formatBytes(variant.avgImageSizeBytes)} avg. per page`,
   );
+
   return `### ${title}\n\n${description}\n\n${lines.join('\n')}\n`;
 }
 

@@ -3,12 +3,17 @@ export async function averageDuration(iterations: number, run: () => Promise<voi
   if (iterations <= 0) {
     return 0;
   }
+
   let total = 0;
+
   for (let i = 0; i < iterations; i++) {
     const start = performance.now();
+
     await run();
+
     total += performance.now() - start;
   }
+
   return total / iterations;
 }
 
@@ -17,11 +22,16 @@ export async function averageDurationOverItems<T>(items: T[], run: (item: T) => 
   if (items.length === 0) {
     return 0;
   }
+
   let total = 0;
+
   for (const item of items) {
     const start = performance.now();
+
     await run(item);
+
     total += performance.now() - start;
   }
+
   return total / items.length;
 }

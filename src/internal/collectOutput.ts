@@ -14,15 +14,22 @@ export async function withOutput(
 ): Promise<Buffer | void> {
   if (typeof output === 'string') {
     const dest = fs.createWriteStream(output);
+
     await run(dest);
+
     return;
   }
+
   if (output) {
     await run(output);
+
     return;
   }
+
   const pass = new PassThrough();
   const bufferPromise = streamToBuffer(pass);
+
   await run(pass);
+
   return bufferPromise;
 }

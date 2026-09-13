@@ -17,6 +17,7 @@ describe('renameArchiveImagesSequentially', () => {
 
     const renamed = (await renameArchiveImagesSequentially(zip)) as Buffer;
     const files = (await listArchiveFiles(renamed)).sort();
+
     expect(files).toEqual(['ComicInfo.xml', 'P00001.jpg', 'P00002.jpg', 'P00003.jpg']);
 
     // Natural sort: page1 < page2 < page10 (not lexicographic "page1" < "page10" < "page2").
@@ -29,6 +30,7 @@ describe('renameArchiveImagesSequentially', () => {
     const zip = Buffer.from(zipSync({ 'a.png': strToU8('a') }));
     const renamed = (await renameArchiveImagesSequentially(zip, { start: 5, pad: 3 })) as Buffer;
     const files = await listArchiveFiles(renamed);
+
     expect(files).toEqual(['P005.png']);
   });
 });

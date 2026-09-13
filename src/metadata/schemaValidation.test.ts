@@ -6,6 +6,7 @@ import type { ComicMetadata, MetadataSchema } from '../types.js';
 
 async function expectValidAgainst(xml: string, schema: MetadataSchema) {
   const result = await validateMetadataXml(xml, schema);
+
   expect(result.issues.map((issue) => issue.message)).toEqual([]);
   expect(result.valid).toBe(true);
 }
@@ -59,6 +60,7 @@ describe('ComicInfo.xml schema validation', () => {
         { index: 1, doublePage: true, imageSize: 12345, imageWidth: 1000, imageHeight: 1500, key: 'k', bookmark: 'b' },
       ],
     };
+
     await expectValidAgainst(metadataToComicInfoXml(metadata), 'ComicInfo');
   });
 });
@@ -116,6 +118,7 @@ describe('MetronInfo.xml schema validation', () => {
       ],
       lastModified: '2024-03-15T12:00:00Z',
     };
+
     await expectValidAgainst(metadataToMetronInfoXml(metadata), 'MetronInfo');
   });
 });
@@ -123,6 +126,7 @@ describe('MetronInfo.xml schema validation', () => {
 describe('validateMetadataXml', () => {
   it('reports issues for a document that violates the schema', async () => {
     const result = await validateMetadataXml('<ComicInfo><NotARealField>x</NotARealField></ComicInfo>', 'ComicInfo');
+
     expect(result.valid).toBe(false);
     expect(result.issues.length).toBeGreaterThan(0);
     expect(result.issues[0]?.message).toContain('NotARealField');
@@ -130,6 +134,7 @@ describe('validateMetadataXml', () => {
 
   it('accepts a Buffer', async () => {
     const result = await validateMetadataXml(Buffer.from(metadataToComicInfoXml({ title: 'Buffered' })), 'ComicInfo');
+
     expect(result.valid).toBe(true);
   });
 });

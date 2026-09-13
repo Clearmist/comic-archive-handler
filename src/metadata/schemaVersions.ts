@@ -23,12 +23,15 @@ export const SCHEMA_VERSIONS: Record<MetadataSchema, string> = {
  */
 function findPackageRoot(): string {
   let dir = dirname(fileURLToPath(import.meta.url));
+
   for (let i = 0; i < 5; i++) {
     if (existsSync(join(dir, 'schemas'))) {
       return dir;
     }
+
     dir = join(dir, '..');
   }
+
   throw new Error('Could not locate the "schemas" directory relative to the package root.');
 }
 

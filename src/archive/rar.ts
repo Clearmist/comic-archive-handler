@@ -9,8 +9,8 @@ function toArrayBuffer(buf: Buffer): ArrayBuffer {
 }
 
 /**
- * node-unrar-js cannot extract entries one at a time (a confirmed library
- * limitation) — it decodes the whole archive into memory up front. This
+ * The node-unrar-js package cannot extract entries one at a time (a confirmed
+ * limitation); it decodes the whole archive into memory up front. This
  * adapter still exposes the lazily-pulled ArchiveAdapter shape, but does not
  * get the memory-efficiency win the interface provides for zip/tar/asar.
  */

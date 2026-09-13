@@ -68,7 +68,7 @@ describe('benchmarkArchive', () => {
       expect(entries.some((entryPath) => entryPath.endsWith(`.${imageExtFor(variant.imageFormat)}`))).toBe(true);
     }
 
-    // avgImageSizeBytes depends only on image format, not container: it should
+    // The avgImageSizeBytes function depends only on image format, not container: it should
     // match across every container variant sharing the same image format.
     for (const imageFormat of ['webp', 'png', 'jpg']) {
       const sizes = result.variants.filter((v) => v.imageFormat === imageFormat).map((v) => v.avgImageSizeBytes);

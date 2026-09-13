@@ -11,8 +11,10 @@ export function resolveSafeEntryPath(root: string, entryPath: string): string {
   const normalizedEntry = entryPath.replace(/\\/g, '/');
   const resolved = path.resolve(root, `.${path.sep}${normalizedEntry}`);
   const rootWithSep = root.endsWith(path.sep) ? root : root + path.sep;
+
   if (resolved !== root && !resolved.startsWith(rootWithSep)) {
     throw new ArchiveFormatError(`Refusing to write entry outside staging directory: "${entryPath}"`);
   }
+
   return resolved;
 }

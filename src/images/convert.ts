@@ -11,8 +11,10 @@ import type { ArchiveWriteOptions } from '../types.js';
 
 export async function convertImageBuffer(image: Buffer, format: ImageOutputFormat, options: ImageConvertOptions = {}): Promise<Buffer> {
   let pipeline = sharp(image);
+
   if (format === 'webp') {
     const webp = options.webp ?? {};
+
     pipeline = pipeline.webp({
       quality: webp.quality ?? 92,
       effort: webp.effort ?? 6,
@@ -20,21 +22,25 @@ export async function convertImageBuffer(image: Buffer, format: ImageOutputForma
     });
   } else if (format === 'jpg') {
     const jpeg = options.jpeg ?? {};
+
     pipeline = pipeline.jpeg({ quality: jpeg.quality ?? 90 });
   } else {
     const png = options.png ?? {};
+
     pipeline = pipeline.png({
       quality: png.quality,
       compressionLevel: png.compressionLevel,
       palette: png.palette,
     });
   }
+
   return pipeline.toBuffer();
 }
 
 function replaceExtension(entryPath: string, format: ImageOutputFormat): string {
   const newExt = format === 'jpg' ? 'jpg' : format;
   const withoutExt = entryPath.replace(/\.[^./\\]+$/, '');
+
   return `${withoutExt}.${newExt}`;
 }
 
@@ -52,6 +58,7 @@ export async function convertArchiveImages(
       if (isImagePath(entry.path) && getExtension(entry.path) !== (format === 'jpg' ? 'jpg' : format)) {
         const buffer = await streamToBuffer(entry.openReadStream());
         const converted = await convertImageBuffer(buffer, format, imageOptions);
+
         yield { path: replaceExtension(entry.path, format), size: converted.length, content: Readable.from(converted) };
       } else {
         yield { path: entry.path, size: entry.size, content: entry.openReadStream() };

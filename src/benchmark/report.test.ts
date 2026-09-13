@@ -54,6 +54,7 @@ describe('renderBenchmarkReportMarkdown', () => {
     const markdown = renderBenchmarkReportMarkdown(result(variants));
 
     const readSpeedSection = markdown.split('### Read speed')[1]!.split('### Storage size')[0]!;
+
     expect(readSpeedSection).toContain('**b**');
     expect(readSpeedSection).toContain('**d**');
     expect(readSpeedSection).toContain('**c**');
@@ -61,6 +62,7 @@ describe('renderBenchmarkReportMarkdown', () => {
     expect(readSpeedSection).not.toContain('**e**');
 
     const sizeSection = markdown.split('### Storage size')[1]!.split('### Transfer size')[0]!;
+
     expect(sizeSection).toContain('**b**');
     expect(sizeSection).toContain('**d**');
     expect(sizeSection).toContain('**c**');
@@ -77,6 +79,7 @@ describe('renderBenchmarkReportMarkdown', () => {
     const markdown = renderBenchmarkReportMarkdown(result(variants));
 
     const transferSection = markdown.split('### Transfer size')[1]!.split('### Creation speed')[0]!;
+
     expect(transferSection).toContain('**jpg**');
     expect(transferSection).toContain('**webp**');
     expect(transferSection).toContain('**png**');
@@ -85,6 +88,7 @@ describe('renderBenchmarkReportMarkdown', () => {
 
   it('handles a single variant without error', () => {
     const markdown = renderBenchmarkReportMarkdown(result([variant({})]));
+
     expect(markdown).toContain('Variants: 1');
   });
 });

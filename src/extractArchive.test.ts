@@ -10,7 +10,9 @@ const tempDirs: string[] = [];
 
 async function makeTempDir(): Promise<string> {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'cah-extract-test-'));
+
   tempDirs.push(dir);
+
   return dir;
 }
 
@@ -49,12 +51,14 @@ describe('extractArchive', () => {
 
   it('throws ArchiveFormatError for an undetectable format', async () => {
     const destDir = await makeTempDir();
+
     await expect(extractArchive(Buffer.from('not an archive'), destDir)).rejects.toThrow(ArchiveFormatError);
   });
 
   it('rejects zip-slip entries that would escape destDir', async () => {
     const zip = Buffer.from(zipSync({ '../../etc/passwd': strToU8('pwned') }));
     const destDir = await makeTempDir();
+
     await expect(extractArchive(zip, destDir)).rejects.toThrow(ArchiveFormatError);
   });
 });

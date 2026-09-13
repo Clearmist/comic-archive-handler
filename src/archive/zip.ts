@@ -10,19 +10,25 @@ function toEntry(file: UnzipFile): ArchiveEntry {
     size: file.originalSize,
     openReadStream(): Readable {
       const pass = new PassThrough();
+
       file.ondata = (err, data, final) => {
         if (err) {
           pass.destroy(err);
+
           return;
         }
+
         if (data.length) {
           pass.write(Buffer.from(data));
         }
+
         if (final) {
           pass.end();
         }
       };
+
       file.start();
+
       return pass;
     },
   };
@@ -37,11 +43,13 @@ export const zipAdapter: ArchiveAdapter = {
     const queue = new AsyncQueue<ArchiveEntry>();
 
     const unzip = new Unzip();
+
     unzip.register(UnzipInflate);
     unzip.onfile = (file) => {
       if (file.name.endsWith('/')) {
         return;
       }
+
       queue.push(toEntry(file));
     };
 
@@ -60,12 +68,17 @@ export const zipAdapter: ArchiveAdapter = {
       const zip = new Zip((err, data, final) => {
         if (err) {
           destination.destroy(err);
+
           reject(err);
+
           return;
         }
+
         destination.write(Buffer.from(data));
+
         if (final) {
           destination.end();
+
           resolve();
         }
       });
@@ -73,12 +86,16 @@ export const zipAdapter: ArchiveAdapter = {
       (async () => {
         for await (const entry of entries) {
           const zipFile = new ZipDeflate(entry.path);
+
           zip.add(zipFile);
+
           for await (const chunk of entry.content) {
             zipFile.push(new Uint8Array(chunk as Buffer), false);
           }
+
           zipFile.push(new Uint8Array(0), true);
         }
+
         zip.end();
       })().catch(reject);
     });

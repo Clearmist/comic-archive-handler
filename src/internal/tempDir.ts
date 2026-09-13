@@ -5,6 +5,7 @@ import { FilesystemAccessError } from '../errors.js';
 
 async function isWritableDir(dir: string): Promise<boolean> {
   const probe = path.join(dir, `.cah-write-probe-${process.pid}-${Date.now()}`);
+
   try {
     await fs.writeFile(probe, '');
     await fs.rm(probe, { force: true });
@@ -33,6 +34,7 @@ export async function resolveWritableTempDir(preferredDir?: string): Promise<str
     if (!(await isWritableDir(preferredDir))) {
       throw new FilesystemAccessError(`The provided tempDir "${preferredDir}" is not writable. Pass a writable directory via { tempDir }.`);
     }
+
     return fs.mkdtemp(path.join(preferredDir, 'cah-'));
   }
 

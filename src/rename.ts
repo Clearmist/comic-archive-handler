@@ -26,22 +26,27 @@ export async function renameArchiveImagesSequentially(input: ArchiveInput, optio
   const start = options.start ?? 1;
 
   const imagePaths: string[] = [];
+
   for await (const entry of adapter.listEntries(input, { tempDir: options.tempDir })) {
     if (isImagePath(entry.path)) {
       imagePaths.push(entry.path);
     }
   }
+
   imagePaths.sort(naturalCompare);
 
   const renameMap = new Map<string, string>();
+
   imagePaths.forEach((entryPath, index) => {
     const ext = getExtension(entryPath);
+
     renameMap.set(entryPath, `P${String(start + index).padStart(pad, '0')}.${ext}`);
   });
 
   async function* output(): AsyncGenerator<ArchiveWriteEntry> {
     for await (const entry of adapter.listEntries(input, { tempDir: options.tempDir })) {
       const newPath = renameMap.get(entry.path) ?? entry.path;
+
       yield { path: newPath, size: entry.size, content: entry.openReadStream() };
     }
   }

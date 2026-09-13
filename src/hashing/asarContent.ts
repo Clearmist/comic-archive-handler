@@ -10,5 +10,6 @@ import { readInputRange } from '../internal/inputSource.js';
  */
 export async function locateAsarContentRegion(input: ArchiveInput, totalSize: number): Promise<{ start: number; end: number }> {
   const { contentOffset } = await parseAsarHeader((start, end) => readInputRange(input, start, end));
+
   return { start: contentOffset, end: totalSize };
 }
