@@ -117,12 +117,12 @@ GIF, BMP, and TIFF are intentionally not included as writable because of their p
 
 ## Notes and known limitations
 
-- **ACE (CBA) is entirely unsupported.** ACE archives are still detected (`detectArchiveType`/`isAce`), but every read, write, and conversion operation throws `UnsupportedOperationError`: ACE is a dead format that hasn't been updated since 2011, has multiple known security vulnerabilities, and — unlike RAR or 7z — has no maintained JS/WASM decoder or bundleable cross-platform binary to build support on.
-- **RAR is read-only.** The UnRAR source license permits decompression only, not building a compatible compressor, so `convertArchive(input, 'rar')` always throws `UnsupportedOperationError`. RAR reading uses [`node-unrar-js`](https://github.com/YuJianrong/node-unrar.js) (pure JS/WASM, no system binary); note it decodes the whole archive into memory at once rather than streaming entries individually — a limitation of that library, not this package. It has been lightly maintained since 2023; [`electron-unrar-js`](https://www.npmjs.com/package/electron-unrar-js) is a maintained fork worth watching as a fallback.
+- **ACE (CBA) is entirely unsupported.** ACE archives are still detected (`detectArchiveType`/`isAce`), but every read, write, and conversion operation throws `UnsupportedOperationError`: ACE is a dead format that hasn't been updated since 2011, has multiple known security vulnerabilities, and has no maintained JS/WASM decoder or bundleable cross-platform binary to build support on.
+- **RAR is read-only.** The UnRAR source license permits decompression only, not building a compatible compressor, so `convertArchive(input, 'rar')` always throws `UnsupportedOperationError`.
 - **7z read/write** uses the standalone `7zzs` binary bundled by [`7zip-bin-full`](https://www.npmjs.com/package/7zip-bin-full), spawned directly (not through `node-7z`, which has no way to control the child process's working directory). Both directions round-trip through a temporary staging directory since the 7-Zip CLI operates on real files, not in-memory buffers.
 - **asar** reads are fully streaming (direct byte-range reads against the archive, no extraction), but writes require a staging directory since `@electron/asar`'s `createPackage` API only accepts a source directory on disk.
 - Any operation that needs a staging directory (asar writes, any 7z operation) accepts a `tempDir` option; if omitted, a directory under `os.tmpdir()` is used, and a clear `FilesystemAccessError` is thrown if no writable directory is available.
-- Metadata conversion between the canonical schema and ComicInfo.xml/MetronInfo.xml is intentionally lossy in both directions — see the field-mapping table in `src/metadata/schema.ts`.
+- Metadata conversion between the canonical schema and ComicInfo.xml/MetronInfo.xml is intentionally lossy in both directions. See the field-mapping table in `src/metadata/schema.ts`.
 - PNG conversion's `quality` option only has an effect when `palette: true` is also set (an upstream `sharp`/libvips behavior).
 
 ## Official schemas
