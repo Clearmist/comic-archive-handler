@@ -100,6 +100,22 @@ Reads one archive entry and returns its contents as a `Buffer`. Throws `Metadata
 const page = await cah.readArchiveEntry(comicBuffer, 'P00001.jpg');
 ```
 
+### `readArchiveEntries(input)`
+
+Reads every entry's contents and SHA256 in a single pass over the archive, yielding `{ path, size?, buffer, sha256 }` in archive iteration order. Prefer this over calling `readArchiveEntry`/`sha256ArchiveEntry` once per entry: zip and asar support real random access, but the sequential/CLI-driven formats (rar, 7z, ace, tar) re-scan the archive from the start on every such call — reading every entry that way costs O(n^2) instead of O(n) for those formats. It also avoids reading each entry's data twice (once for the hash, once for the buffer).
+
+**Options**
+
+- `input: ArchiveInput` - A filesystem path or archive `Buffer`.
+
+**Example**
+
+```js
+for await (const entry of cah.readArchiveEntries(comicBuffer)) {
+  console.log(entry.path, entry.sha256);
+}
+```
+
 ### `renameArchiveImagesSequentially(input, options?)`
 
 Renames image entries in natural-sort order to `P#####.<extension>`, while leaving other entries unchanged.

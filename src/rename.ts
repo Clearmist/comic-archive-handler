@@ -12,12 +12,13 @@ import { naturalCompare } from './internal/naturalSort.js';
  * ComicInfo.xml/MetronInfo.xml) untouched.
  *
  * This requires two passes over the archive: `listEntries` is called once to
- * collect image paths (metadata only — no content is read, so no
+ * collect image paths (metadata only, no content is read, so no
  * decompression work is wasted) to compute the sort-order rename map, then
- * called again to stream entries out under their new names. Streaming
- * adapters (zip in particular) can't be "rewound" mid-read, so the second
- * pass re-invokes `listEntries` from the start rather than reusing entry
- * objects collected in the first pass.
+ * called again to stream entries out under their new names. `listEntries` is
+ * re-invoked from the start for the second pass rather than reusing entry
+ * objects collected in the first, since the sequential/CLI-driven adapters
+ * (rar, 7z, ace, tar) can't be "rewound" mid-read even though zip and asar
+ * could serve both passes from the entries collected the first time round.
  */
 export async function renameArchiveImagesSequentially(input: ArchiveInput, options: RenameOptions = {}): Promise<Buffer | void> {
   const type = await detectArchiveType(input);

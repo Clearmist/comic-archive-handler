@@ -1,66 +1,30 @@
-import { PassThrough, type Readable } from 'node:stream';
-import { Unzip, UnzipInflate, Zip, ZipDeflate, type UnzipFile } from 'fflate';
+import { Readable } from 'node:stream';
+import { Zip, ZipDeflate } from 'fflate';
 import type { ArchiveAdapter, ArchiveEntry } from './types.js';
-import { openInputReadStream } from '../internal/inputSource.js';
-import { AsyncQueue } from '../internal/streamUtils.js';
-
-function toEntry(file: UnzipFile): ArchiveEntry {
-  return {
-    path: file.name,
-    size: file.originalSize,
-    openReadStream(): Readable {
-      const pass = new PassThrough();
-
-      file.ondata = (err, data, final) => {
-        if (err) {
-          pass.destroy(err);
-
-          return;
-        }
-
-        if (data.length) {
-          pass.write(Buffer.from(data));
-        }
-
-        if (final) {
-          pass.end();
-        }
-      };
-
-      file.start();
-
-      return pass;
-    },
-  };
-}
+import { parseZipCentralDirectory, readZipEntryData } from '../internal/zipCentralDirectory.js';
 
 export const zipAdapter: ArchiveAdapter = {
   type: 'zip',
   canWrite: true,
 
   async *listEntries(input) {
-    const source = openInputReadStream(input);
-    const queue = new AsyncQueue<ArchiveEntry>();
+    const entries = await parseZipCentralDirectory(input);
 
-    const unzip = new Unzip();
+    for (const entry of entries) {
+      const archiveEntry: ArchiveEntry = {
+        path: entry.path,
+        size: entry.uncompressedSize,
+        openReadStream(): Readable {
+          return Readable.from(
+            (async function* () {
+              yield await readZipEntryData(input, entry);
+            })(),
+          );
+        },
+      };
 
-    unzip.register(UnzipInflate);
-    unzip.onfile = (file) => {
-      if (file.name.endsWith('/')) {
-        return;
-      }
-
-      queue.push(toEntry(file));
-    };
-
-    source.on('data', (chunk: Buffer) => unzip.push(new Uint8Array(chunk), false));
-    source.on('end', () => {
-      unzip.push(new Uint8Array(0), true);
-      queue.finish();
-    });
-    source.on('error', (err) => queue.fail(err));
-
-    yield* queue;
+      yield archiveEntry;
+    }
   },
 
   async write(entries, destination) {

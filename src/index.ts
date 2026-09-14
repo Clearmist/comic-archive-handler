@@ -12,6 +12,7 @@ export * from './rename.js';
 export * from './strip.js';
 export * from './listFiles.js';
 export * from './readArchiveEntry.js';
+export * from './readArchiveEntries.js';
 export * from './benchmark/index.js';
 
 import * as detectApi from './detect.js';
@@ -26,6 +27,7 @@ import { renameArchiveImagesSequentially } from './rename.js';
 import { stripNonEssentialFiles } from './strip.js';
 import { listArchiveFiles } from './listFiles.js';
 import { readArchiveEntry } from './readArchiveEntry.js';
+import { readArchiveEntries } from './readArchiveEntries.js';
 import {
   benchmarkArchive,
   renderBenchmarkReportMarkdown,
@@ -53,6 +55,7 @@ const comicArchiveHandler = {
   stripNonEssentialFiles,
   listArchiveFiles,
   readArchiveEntry,
+  readArchiveEntries,
   benchmarkArchive,
   renderBenchmarkReportMarkdown,
   WRITABLE_ARCHIVE_TYPES,
