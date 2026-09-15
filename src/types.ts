@@ -71,6 +71,8 @@ export interface StripOptions extends ArchiveWriteOptions {
   extraKeepExtensions?: string[];
 }
 
+export type RemoveEntryOptions = ArchiveWriteOptions;
+
 export interface ComicCredit {
   name: string;
   role: string;

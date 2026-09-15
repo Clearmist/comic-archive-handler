@@ -172,6 +172,23 @@ const cleaned = await cah.stripNonEssentialFiles(comicBuffer, {
 });
 ```
 
+### `removeArchiveEntry(input, entryPath, options?)`
+
+Removes a single named entry from an archive, leaving every other entry unchanged. Throws `MetadataNotFoundError` when no entry matches `entryPath`.
+
+**Options**
+
+- `input: ArchiveInput` - A filesystem path or archive `Buffer`.
+- `entryPath: string` - Exact archive entry path to remove.
+- `options.tempDir?: string` - Temporary staging directory for ASAR or 7z operations.
+- `options.output?: string | Writable` - Output destination. Without it, returns a `Buffer`.
+
+**Example**
+
+```js
+const trimmed = await cah.removeArchiveEntry(comicBuffer, 'thumbs.db');
+```
+
 ## Metadata
 
 `ComicMetadata` is the canonical metadata shape, covering every field defined by both bundled schemas (`schemas/ComicInfo v2.1.xsd` and `schemas/MetronInfo v1.1.xsd`) — see [`schemaVersions.ts`](../src/metadata/schemaVersions.ts) if those XSDs are ever upgraded. Conversion between ComicInfo.xml and MetronInfo.xml is intentionally lossy when a field has no equivalent in the target schema; the complete field mapping is maintained in `src/metadata/schema.ts`.
@@ -605,6 +622,7 @@ The following types are exported for TypeScript consumers.
 - `AddMetadataOptions` - Archive write options plus `overwrite?: boolean`.
 - `RenameOptions` - Archive write options plus `start?: number` and `pad?: number`.
 - `StripOptions` - Archive write options plus `extraKeepExtensions?: string[]`.
+- `RemoveEntryOptions` - Archive write options (no additional fields).
 - `ImageConvertOptions` - `webp?`, `jpeg?`, and `png?` format option groups.
 - `WebpOptions` - `quality?`, `effort?`, and `smartSubsample?`.
 - `JpegOptions` - `quality?`.

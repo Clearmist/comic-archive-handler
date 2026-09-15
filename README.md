@@ -11,7 +11,7 @@ A toolkit for detecting, converting, and manipulating comic book archives (CBAS/
 - **Re-encode** page images to different formats
 - **Hash** archives perceptually and by content
 - **Rename** pages sequentially
-- **Strip** non-essential files from archives
+- **Strip** non-essential files from archives, or **remove** a single named entry
 - **Extract** archives to a plain directory of files
 - **Benchmark** archive/image format combinations for creation speed, random read speed, and size
 
