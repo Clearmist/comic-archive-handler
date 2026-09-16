@@ -32,6 +32,18 @@ describe('metadata detection and insertion', () => {
     expect(read?.metadata.title).toBe('Added');
   });
 
+  it('readArchiveMetadata reads a specific non-preferred schema when both are present', async () => {
+    const withComicInfo = (await addMetadataToArchive(sampleZip(), { title: 'CI' }, 'ComicInfo')) as Buffer;
+    const withBoth = (await addMetadataToArchive(withComicInfo, { series: 'MI' }, 'MetronInfo')) as Buffer;
+
+    const preferred = await readArchiveMetadata(withBoth);
+    expect(preferred?.schema).toBe('ComicInfo');
+
+    const metronInfo = await readArchiveMetadata(withBoth, 'MetronInfo');
+    expect(metronInfo?.schema).toBe('MetronInfo');
+    expect(metronInfo?.metadata.series).toBe('MI');
+  });
+
   it('adds a MetronInfo.xml when requested', async () => {
     const withMeta = (await addMetadataToArchive(sampleZip(), { series: 'Added Series' }, 'MetronInfo')) as Buffer;
     const detected = await hasComicMetadata(withMeta);

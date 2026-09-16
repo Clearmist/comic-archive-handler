@@ -27,7 +27,7 @@ console.log(type); // 'zip'
 
 ### `isZip(input)`, `isRar(input)`, `isTar(input)`, `isAsar(input)`, `is7z(input)`, `isAce(input)`
 
-Convenience predicates that detect an archive and return whether it matches the named format. `isAce` detects ACE (`.cba`) archives, but every actual ACE operation (read, write, or conversion) throws `UnsupportedOperationError` — see [`UnsupportedOperationError`](#unsupportedoperationerror).
+Convenience predicates that detect an archive and return whether it matches the named format. `isAce` detects ACE (`.cba`) archives, but every actual ACE operation (read, write, or conversion) throws `UnsupportedOperationError`. See [`UnsupportedOperationError`](#unsupportedoperationerror).
 
 **Options**
 
@@ -102,7 +102,7 @@ const page = await cah.readArchiveEntry(comicBuffer, 'P00001.jpg');
 
 ### `readArchiveEntries(input)`
 
-Reads every entry's contents and SHA256 in a single pass over the archive, yielding `{ path, size?, buffer, sha256 }` in archive iteration order. Prefer this over calling `readArchiveEntry`/`sha256ArchiveEntry` once per entry: zip and asar support real random access, but the sequential/CLI-driven formats (rar, 7z, ace, tar) re-scan the archive from the start on every such call — reading every entry that way costs O(n^2) instead of O(n) for those formats. It also avoids reading each entry's data twice (once for the hash, once for the buffer).
+Reads every entry's contents and SHA256 in a single pass over the archive, yielding `{ path, size?, buffer, sha256 }` in archive iteration order. Prefer this over calling `readArchiveEntry`/`sha256ArchiveEntry` once per entry: zip and asar support real random access, but the sequential/CLI-driven formats (rar, 7z, ace, tar) re-scan the archive from the start on every such call: reading every entry that way costs O(n^2) instead of O(n) for those formats. It also avoids reading each entry's data twice (once for the hash, once for the buffer).
 
 **Options**
 
@@ -191,7 +191,7 @@ const trimmed = await cah.removeArchiveEntry(comicBuffer, 'thumbs.db');
 
 ## Metadata
 
-`ComicMetadata` is the canonical metadata shape, covering every field defined by both bundled schemas (`schemas/ComicInfo v2.1.xsd` and `schemas/MetronInfo v1.1.xsd`) — see [`schemaVersions.ts`](../src/metadata/schemaVersions.ts) if those XSDs are ever upgraded. Conversion between ComicInfo.xml and MetronInfo.xml is intentionally lossy when a field has no equivalent in the target schema; the complete field mapping is maintained in `src/metadata/schema.ts`.
+`ComicMetadata` is the canonical metadata shape, covering every field defined by both bundled schemas (`schemas/ComicInfo v2.1.xsd` and `schemas/MetronInfo v1.1.xsd`). See [`schemaVersions.ts`](../src/metadata/schemaVersions.ts) if those XSDs are ever upgraded. Conversion between ComicInfo.xml and MetronInfo.xml is intentionally lossy when a field has no equivalent in the target schema; the complete field mapping is maintained in `src/metadata/schema.ts`.
 
 List fields that MetronInfo represents as an element with an optional `id` attribute (`genres`, `tags`, `characters`, `teams`, `locations`, `stories`, `reprints`) accept either a plain string or a `{ name, id? }` object (see [`MetronResource`](#types)); the `id` is preserved on round-trip through MetronInfo.xml and dropped when writing ComicInfo.xml, which has no equivalent concept.
 
@@ -283,7 +283,7 @@ const metadata = cah.xmlToMetadata(xml, 'ComicInfo');
 
 ### `validateMetadataXml(xml, schema)`
 
-Validates an XML document against the bundled XSD for `'ComicInfo'` or `'MetronInfo'`, using [`xmllint-wasm`](https://www.npmjs.com/package/xmllint-wasm) (a WASM build of libxml2 — no native or Java dependency). Returns `{ valid, issues }`; `issues` is empty when the document conforms, otherwise it has one entry per schema violation with the offending element/attribute in `message` and, where available, a `line` number.
+Validates an XML document against the bundled XSD for `'ComicInfo'` or `'MetronInfo'`, using [`xmllint-wasm`](https://www.npmjs.com/package/xmllint-wasm) (a WASM build of libxml2; no native or Java dependency). Returns `{ valid, issues }`; `issues` is empty when the document conforms, otherwise it has one entry per schema violation with the offending element/attribute in `message` and, where available, a `line` number.
 
 Because the validator implements XSD 1.0, it cannot check the two `<xs:assert>` business rules in MetronInfo.xml v1.1 (at most one primary `URL`, at most one primary `ID`); everything else in both schemas is enforced.
 
@@ -306,9 +306,21 @@ if (!valid) {
 }
 ```
 
+**ASAR is the one exception to everything below**: an asar archive never
+stores metadata as a `ComicInfo.xml`/`MetronInfo.xml` entry. Instead,
+`hasComicMetadata`/`readArchiveMetadata`/`addMetadataToArchive`/
+`removeComicMetadata` all read/write a `comicMetadata` key embedded directly
+in the asar container's own header (the small JSON block at the start of
+every `.asar` file, alongside the header's existing `files` key), as plain
+JSON; no XML involved. This is transparent to callers: the same four
+functions work identically regardless of archive type, and `schema` still
+selects `'ComicInfo'` vs `'MetronInfo'` field semantics either way. A
+`ComicInfo.xml`/`MetronInfo.xml` _entry_ inside an asar archive is never
+read as metadata by any of these functions.
+
 ### `hasComicMetadata(input)`
 
-Checks for a root-level or nested `ComicInfo.xml` or `MetronInfo.xml` entry without parsing it. Returns `{ present, schema?, path? }`.
+Checks for a root-level or nested `ComicInfo.xml` or `MetronInfo.xml` entry without parsing it (or, for asar, a `comicMetadata` header key). Returns `{ present, schema?, path?, bothPresent? }`. `path` is only set for a real archive entry (never for asar); `bothPresent` (asar only) is `true` when both `ComicInfo` and `MetronInfo` are present in the header.
 
 **Options**
 
@@ -323,13 +335,14 @@ if (result.present) {
 }
 ```
 
-### `readArchiveMetadata(input)`
+### `readArchiveMetadata(input, schema?)`
 
-Finds and parses the first recognized metadata entry. Returns `{ schema, metadata }`, or `null` when no metadata file is present.
+Finds and parses metadata. With no `schema`, returns whichever is found first (asar checks ComicInfo before MetronInfo). Pass `schema` to read that one specifically regardless of preference. The only way to read a non-preferred schema back out of an asar archive that has both, since asar metadata isn't addressable by path. Returns `{ schema, metadata }`, or `null` when that metadata isn't present.
 
 **Options**
 
 - `input: ArchiveInput` - A filesystem path or archive `Buffer`.
+- `schema?: 'ComicInfo' | 'MetronInfo'` - Read this specific schema instead of whichever is preferred.
 
 **Example**
 
@@ -340,7 +353,7 @@ console.log(result?.metadata.title);
 
 ### `addMetadataToArchive(input, metadata, schema, options?)`
 
-Adds a `ComicInfo.xml` or `MetronInfo.xml` entry to an archive. Existing metadata is rejected unless `overwrite: true` is supplied.
+Adds a `ComicInfo.xml` or `MetronInfo.xml` entry to an archive (or, for asar, sets the `comicMetadata.{schema}` header key). Existing metadata is rejected unless `overwrite: true` is supplied.
 
 **Options**
 
@@ -364,6 +377,23 @@ const withMetadata = await cah.addMetadataToArchive(
   'ComicInfo',
   { overwrite: true },
 );
+```
+
+### `removeComicMetadata(input, schema, options?)`
+
+Removes the embedded `schema` metadata (a `ComicInfo.xml`/`MetronInfo.xml` entry, or, for asar, the `comicMetadata.{schema}` header key). Throws `ArchiveFormatError` if that schema isn't present. Check `hasComicMetadata` first if you want a no-op instead.
+
+**Options**
+
+- `input: ArchiveInput` - A filesystem path or archive `Buffer`.
+- `schema: 'ComicInfo' | 'MetronInfo'` - Metadata to remove.
+- `options.tempDir?: string` - Temporary staging directory for ASAR or 7z operations.
+- `options.output?: string | Writable` - Output destination. Without it, returns a `Buffer`.
+
+**Example**
+
+```js
+const withoutMetronInfo = await cah.removeComicMetadata(comicBuffer, 'MetronInfo');
 ```
 
 ## Image conversion and detection
@@ -552,7 +582,7 @@ const digest = await cah.sha256Archive('/books/example.cbz');
 
 ### `benchmarkArchive(filePath, options?)`
 
-Extracts a comic archive into the report's `source/` subdirectory, validates it contains image files, then generates one archive per writable container format (`zip`, `tar`, `asar`, `7z`) times benchmarked page image format (`webp`, `png`, `jpg` by default, or a subset via `options.imageFormats`) — 12 variants in total by default, each containing only the original's XML and image entries, always re-encoded from the untouched source pages (never from a previously-converted variant). Benchmarks each variant's average archive-creation time (packaging only — images are re-encoded once per format before timing starts) and average random single-entry read time, writes the generated archives and a markdown report to a timestamped subdirectory, and returns the results.
+Extracts a comic archive into the report's `source/` subdirectory, validates it contains image files, then generates one archive per writable container format (`zip`, `tar`, `asar`, `7z`) times benchmarked page image format (`webp`, `png`, `jpg` by default, or a subset via `options.imageFormats`). 12 variants in total by default, each containing only the original's XML and image entries, always re-encoded from the untouched source pages (never from a previously-converted variant). Benchmarks each variant's average archive-creation time (packaging only; images are re-encoded once per format before timing starts) and average random single-entry read time, writes the generated archives and a markdown report to a timestamped subdirectory, and returns the results.
 
 Throws `ArchiveFormatError` (undetectable format) or `UnsupportedOperationError` (ACE) if `filePath` isn't extractable, `NoImagesFoundError` if the archive has no image files, `FilesystemAccessError` if `filePath` doesn't exist, and `RangeError` if `options.imageFormats` is empty or names an unsupported format.
 
@@ -722,7 +752,7 @@ console.log(cah.joinResourceNames([{ name: 'Action', id: 'genre-1' }, 'Adventure
 
 ### Schema reference enums
 
-Readonly value lists for the enumerated (`xs:enumeration`) types in each XSD. These are reference data, not enforced constraints — fields such as `ageRating` remain plain `string` so unrecognized or future values still round-trip.
+Readonly value lists for the enumerated (`xs:enumeration`) types in each XSD. These are reference data, not enforced constraints. Fields such as `ageRating` remain plain `string` so unrecognized or future values still round-trip.
 
 - `COMIC_INFO_YES_NO_VALUES` - `'Unknown' | 'No' | 'Yes'` (ComicInfo `BlackAndWhite`).
 - `COMIC_INFO_MANGA_VALUES` - `'Unknown' | 'No' | 'Yes' | 'YesAndRightToLeft'` (ComicInfo `Manga`).
@@ -731,7 +761,7 @@ Readonly value lists for the enumerated (`xs:enumeration`) types in each XSD. Th
 - `METRON_FORMAT_VALUES` - MetronInfo `Series > Format` values, e.g. `'Single Issue'`, `'Trade Paperback'`.
 - `METRON_INFORMATION_SOURCE_VALUES` - MetronInfo `IDS > ID` `source` attribute values, e.g. `'Comic Vine'`, `'Metron'`.
 - `METRON_ROLE_VALUES` - MetronInfo `Credits > Credit > Roles > Role` values (a larger set than `COMIC_INFO_CREDIT_ROLES`).
-- `METRON_AGE_RATING_VALUES` - MetronInfo `AgeRating` values — a different set from ComicInfo's.
+- `METRON_AGE_RATING_VALUES` - MetronInfo `AgeRating` values; a different set from ComicInfo's.
 
 **Example**
 

@@ -37,8 +37,8 @@ async function ensureBinaryAvailable(): Promise<string> {
  * going through the `node-7z` wrapper: that package has no way to set the
  * child process's working directory, which is required here to get archive
  * entries stored with paths relative to the staging directory (rather than
- * either leaking absolute host paths, or — as discovered during
- * implementation testing — silently operating against this process's actual
+ * either leaking absolute host paths or, as discovered during
+ * implementation testing, silently operating against this process's actual
  * cwd instead of the intended staging directory).
  */
 function run7z(binPath: string, args: string[], options: { cwd: string }): Promise<void> {

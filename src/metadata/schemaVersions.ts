@@ -17,7 +17,7 @@ export const SCHEMA_VERSIONS: Record<MetadataSchema, string> = {
 /**
  * Walks up from this module's location to find the package root (the
  * directory containing `schemas/`). This module runs both from `src/`
- * (tests, ts-node) and from the single-file bundle in `dist/` — those sit
+ * (tests, ts-node) and from the single-file bundle in `dist/`; those sit
  * at different depths relative to the package root, so the depth can't be
  * hardcoded.
  */

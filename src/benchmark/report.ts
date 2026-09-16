@@ -50,7 +50,7 @@ function renderRankedSection(
   format: (variant: BenchmarkVariantResult) => string,
 ): string {
   const lines = ranked.map(
-    (variant, index) => `${index + 1}. **${variant.fileName}** (${variant.archiveType}/${variant.imageFormat}) — ${format(variant)}`,
+    (variant, index) => `${index + 1}. **${variant.fileName}** (${variant.archiveType}/${variant.imageFormat}): ${format(variant)}`,
   );
 
   return `### ${title}\n\n${description}\n\n${lines.join('\n')}\n`;
@@ -58,7 +58,7 @@ function renderRankedSection(
 
 function renderImageFormatRankedSection(title: string, description: string, ranked: BenchmarkVariantResult[]): string {
   const lines = ranked.map(
-    (variant, index) => `${index + 1}. **${variant.imageFormat}** — ${formatBytes(variant.avgImageSizeBytes)} avg. per page`,
+    (variant, index) => `${index + 1}. **${variant.imageFormat}**: ${formatBytes(variant.avgImageSizeBytes)} avg. per page`,
   );
 
   return `### ${title}\n\n${description}\n\n${lines.join('\n')}\n`;
@@ -78,27 +78,27 @@ export function renderBenchmarkReportMarkdown(result: BenchmarkArchiveResult): s
 
   const readSpeed = renderRankedSection(
     'Read speed',
-    'Fastest average random single-file read time — best for serving individual pages on demand (e.g. a remote reader).',
+    'Fastest average random single-file read time: best for serving individual pages on demand (e.g. a remote reader).',
     topThree(variants, (variant) => variant.avgSeekMs),
     (variant) => formatMs(variant.avgSeekMs),
   );
 
   const storageSize = renderRankedSection(
     'Storage size',
-    'Smallest resulting archive on disk — best when total storage footprint is the priority.',
+    'Smallest resulting archive on disk: best when total storage footprint is the priority.',
     topThree(variants, (variant) => variant.fileSizeBytes),
     (variant) => formatBytes(variant.fileSizeBytes),
   );
 
   const transferSize = renderImageFormatRankedSection(
     'Transfer size',
-    'Smallest average individual page — best when the cost of sending a single page over the network is the priority (e.g. a client fetching one page at a time). Depends only on image format, not container choice.',
+    'Smallest average individual page: best when the cost of sending a single page over the network is the priority (e.g. a client fetching one page at a time). Depends only on image format, not container choice.',
     topThreeImageFormats(variants),
   );
 
   const creationSpeed = renderRankedSection(
     'Creation speed',
-    'Fastest average archive creation time — best when generating or converting archives on the fly.',
+    'Fastest average archive creation time: best when generating or converting archives on the fly.',
     topThree(variants, (variant) => variant.avgCreationMs),
     (variant) => formatMs(variant.avgCreationMs),
   );

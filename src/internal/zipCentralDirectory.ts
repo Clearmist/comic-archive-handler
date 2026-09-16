@@ -21,7 +21,7 @@ export interface ZipCentralDirectoryEntry {
   compressedSize: number;
   uncompressedSize: number;
   compressionMethod: number;
-  /** Byte offset of this entry's local file header — needed to find its actual data, since the central directory only records metadata. */
+  /** Byte offset of this entry's local file header, needed to find its actual data, since the central directory only records metadata. */
   localHeaderOffset: number;
 }
 
@@ -120,8 +120,8 @@ function readZip64ExtraField(
 }
 
 /**
- * Parses a zip's central directory — the entry index at the end of the
- * file — into per-entry metadata (name, sizes, compression method, and the
+ * Parses a zip's central directory, the entry index at the end of the
+ * file, into per-entry metadata (name, sizes, compression method, and the
  * offset of its local file header). Reading this index costs a couple of
  * small range reads regardless of archive size; it never reads or
  * decompresses entry data itself, which is why entries can then be read in
@@ -185,7 +185,7 @@ export async function parseZipCentralDirectory(input: ArchiveInput): Promise<Zip
 
 /**
  * Reads and decompresses one entry's data, using its central directory
- * metadata to locate the bytes directly — no scan through other entries.
+ * metadata to locate the bytes directly, with no scan through other entries.
  * The local file header still has to be read first because its name/extra
  * field lengths (which can differ from the central directory's) are what
  * determine where the entry's actual data starts.

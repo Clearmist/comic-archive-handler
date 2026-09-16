@@ -11,7 +11,7 @@ import { resolveSafeEntryPath } from '../internal/safePath.js';
 /**
  * Reads bypass @electron/asar's extract API entirely: the header is parsed
  * directly (src/internal/asarHeader.ts) to get each file's byte offset/size,
- * then entries are read via direct byte-range reads against the archive —
+ * then entries are read via direct byte-range reads against the archive;
  * no extraction step, no temp directory, for reads.
  *
  * Writes still require a staging directory, since @electron/asar's

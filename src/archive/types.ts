@@ -4,7 +4,7 @@ import type { ArchiveInput, ArchiveType } from '../types.js';
 export interface ArchiveEntry {
   path: string;
   size?: number;
-  /** Opened lazily — only when the caller actually reads this entry. */
+  /** Opened lazily; only when the caller actually reads this entry. */
   openReadStream(): Readable;
 }
 

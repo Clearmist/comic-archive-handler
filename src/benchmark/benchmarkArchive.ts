@@ -38,7 +38,7 @@ function pickRandomSamples<T>(items: T[], count: number): T[] {
 
 /**
  * The average byte size of one converted image, independent of which
- * container it ends up packaged in ("transfer size" — what a client
+ * container it ends up packaged in ("transfer size": what a client
  * actually downloads to fetch a single page).
  */
 async function averageConvertedImageSize(preConverted: Buffer, imageFormat: ImageOutputFormat, tempDir: string): Promise<number> {

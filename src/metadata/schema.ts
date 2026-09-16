@@ -17,14 +17,14 @@ import type { MetronResource } from '../types.js';
 /**
  * Authoritative field-mapping table between the canonical ComicMetadata
  * shape and each external XML schema (ComicInfo.xml v2.1, MetronInfo.xml
- * v1.1 — see `schemas/`). Conversion is intentionally lossy in both
+ * v1.1. See `schemas/`). Conversion is intentionally lossy in both
  * directions; a field with no equivalent in the target schema is dropped
  * unless the source and target schema happen to be the same one (in which
  * case `comicInfoExtra`/`metronInfoExtra` round-trips it).
  *
  * | Canonical field         | ComicInfo.xml                                      | MetronInfo.xml                                |
  * |-------------------------|-----------------------------------------------------|------------------------------------------------|
- * | title                   | Title                                               | (no equivalent — dropped)                       |
+ * | title                   | Title                                               | (no equivalent; dropped)                       |
  * | series                  | Series                                              | Series > Name                                   |
  * | seriesSort              | (no equivalent)                                     | Series > SortName                               |
  * | seriesId / seriesLang   | (no equivalent)                                     | Series `id`/`lang` attributes                   |
@@ -32,18 +32,18 @@ import type { MetronResource } from '../types.js';
  * | seriesIssueCount        | (no equivalent)                                     | Series > IssueCount                             |
  * | seriesVolumeCount       | (no equivalent)                                     | Series > VolumeCount                            |
  * | seriesAlternativeNames  | (no equivalent)                                     | Series > AlternativeNames > AlternativeName[]   |
- * | seriesGroup             | SeriesGroup                                         | (no equivalent — dropped)                       |
+ * | seriesGroup             | SeriesGroup                                         | (no equivalent; dropped)                       |
  * | volume                  | Volume                                              | Series > Volume                                 |
  * | number                  | Number                                              | Number                                          |
  * | alternateNumber         | AlternateNumber                                     | AlternativeNumber                               |
- * | alternateSeries         | AlternateSeries                                     | (no equivalent — dropped)                       |
- * | alternateCount          | AlternateCount                                      | (no equivalent — dropped)                       |
+ * | alternateSeries         | AlternateSeries                                     | (no equivalent; dropped)                       |
+ * | alternateCount          | AlternateCount                                      | (no equivalent; dropped)                       |
  * | count                   | Count                                               | (no equivalent)                                 |
  * | pageCount               | PageCount                                           | PageCount                                       |
  * | summary                 | Summary                                             | Summary                                         |
  * | notes                   | Notes                                               | Notes                                           |
- * | review                  | Review                                              | (no equivalent — dropped)                       |
- * | scanInformation         | ScanInformation                                     | (no equivalent — dropped)                       |
+ * | review                  | Review                                              | (no equivalent; dropped)                       |
+ * | scanInformation         | ScanInformation                                     | (no equivalent; dropped)                       |
  * | publisher / publisherId | Publisher                                           | Publisher > Name / `id` attribute               |
  * | imprint / imprintId     | Imprint                                             | Publisher > Imprint / `id` attribute            |
  * | collectionTitle         | (no equivalent)                                     | CollectionTitle                                 |
@@ -61,7 +61,7 @@ import type { MetronResource } from '../types.js';
  * | teams                   | Teams (comma-separated string)                      | Teams > Team[] (`id` attribute)                 |
  * | locations               | Locations (comma-separated string)                  | Locations > Location[] (`id` attribute)         |
  * | storyArcs               | StoryArc / StoryArcNumber (parallel comma lists)    | Arcs > Arc[] (Name + Number + `id`)             |
- * | mainCharacterOrTeam     | MainCharacterOrTeam                                 | (no equivalent — dropped)                       |
+ * | mainCharacterOrTeam     | MainCharacterOrTeam                                 | (no equivalent; dropped)                       |
  * | stories                 | (no equivalent)                                     | Stories > Story[]                               |
  * | reprints                | (no equivalent)                                     | Reprints > Reprint[]                            |
  * | universes               | (no equivalent)                                     | Universes > Universe[]                          |
@@ -71,9 +71,9 @@ import type { MetronResource } from '../types.js';
  * | web                     | Web (single URL)                                    | URLs > URL[] (`primary` attribute)              |
  * | gtin                    | GTIN                                                | GTIN > ISBN                                     |
  * | gtinUpc                 | (no equivalent)                                     | GTIN > UPC                                      |
- * | blackAndWhite           | BlackAndWhite (Yes/No)                              | (no equivalent — ComicInfo-only)                |
- * | manga                   | Manga                                               | (no equivalent — ComicInfo-only)                |
- * | pages                   | Pages > Page[] (Image/Type/DoublePage/... attrs)    | (no equivalent — ComicInfo-only)                |
+ * | blackAndWhite           | BlackAndWhite (Yes/No)                              | (no equivalent; ComicInfo-only)                |
+ * | manga                   | Manga                                               | (no equivalent; ComicInfo-only)                |
+ * | pages                   | Pages > Page[] (Image/Type/DoublePage/... attrs)    | (no equivalent; ComicInfo-only)                |
  */
 export const COMIC_INFO_CREDIT_ROLES = [
   'Writer',

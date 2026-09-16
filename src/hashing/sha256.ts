@@ -31,7 +31,7 @@ export async function sha256ArchiveEntry(input: ArchiveInput, entryPath: string)
 }
 
 /**
- * SHA256 of the whole archive file — except for asar, where only the
+ * SHA256 of the whole archive file, except for asar, where only the
  * content region (bytes after the header) is hashed, so header/index
  * reordering never changes the content hash.
  */

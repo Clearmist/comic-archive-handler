@@ -64,7 +64,7 @@ describe('parseZipCentralDirectory', () => {
     // Locate the regular EOCD that zipSync produced, then rebuild the trailer
     // as zip64 (a zip64 EOCD record + locator + a regular EOCD whose totals
     // are all sentineled to 0xffff/0xffffffff) pointing at the same,
-    // untouched central directory — this is the only way to exercise the
+    // untouched central directory: this is the only way to exercise the
     // zip64 path without a multi-GB fixture.
     let eocdOffset = -1;
     for (let i = zip.length - 22; i >= 0; i--) {
