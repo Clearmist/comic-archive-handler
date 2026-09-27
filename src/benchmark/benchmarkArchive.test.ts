@@ -2,11 +2,11 @@ import { describe, it, expect, afterEach } from 'vitest';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import sharp from 'sharp';
 import { zipSync, strToU8 } from 'fflate';
 import { benchmarkArchive } from './benchmarkArchive.js';
 import { NoImagesFoundError } from '../errors.js';
 import { listArchiveFiles } from '../listFiles.js';
+import { solidImage } from '../internal/testImages.js';
 
 const tempDirs: string[] = [];
 
@@ -21,9 +21,7 @@ afterEach(async () => {
 });
 
 async function makeSampleComicPath(): Promise<string> {
-  const png = await sharp({ create: { width: 8, height: 8, channels: 3, background: { r: 10, g: 200, b: 30 } } })
-    .png()
-    .toBuffer();
+  const png = await solidImage(8, 8, { r: 10, g: 200, b: 30 }).png();
   const zip = zipSync({
     'ComicInfo.xml': strToU8('<ComicInfo/>'),
     'P00001.png': new Uint8Array(png),
@@ -46,11 +44,11 @@ describe('benchmarkArchive', () => {
       seekSamples: 2,
     });
 
-    expect(result.variants).toHaveLength(12);
+    expect(result.variants).toHaveLength(16);
 
     const combos = new Set(result.variants.map((v) => `${v.archiveType}:${v.imageFormat}`));
     for (const archiveType of ['zip', 'tar', 'asar', '7z']) {
-      for (const imageFormat of ['webp', 'png', 'jpg']) {
+      for (const imageFormat of ['webp', 'avif', 'png', 'jpg']) {
         expect(combos.has(`${archiveType}:${imageFormat}`)).toBe(true);
       }
     }
@@ -70,7 +68,7 @@ describe('benchmarkArchive', () => {
 
     // The avgImageSizeBytes function depends only on image format, not container: it should
     // match across every container variant sharing the same image format.
-    for (const imageFormat of ['webp', 'png', 'jpg']) {
+    for (const imageFormat of ['webp', 'avif', 'png', 'jpg']) {
       const sizes = result.variants.filter((v) => v.imageFormat === imageFormat).map((v) => v.avgImageSizeBytes);
       expect(new Set(sizes).size).toBe(1);
     }
@@ -88,6 +86,14 @@ describe('benchmarkArchive', () => {
     expect(result.sourceDir.startsWith(result.reportDir)).toBe(true);
     expect(await fs.readFile(path.join(result.sourceDir, 'ComicInfo.xml'), 'utf8')).toBe('<ComicInfo/>');
     expect(await fs.stat(path.join(result.sourceDir, 'P00001.png'))).toBeTruthy();
+
+    // Each image format's converted pages are kept in their own directory.
+    expect(result.imagesDir.startsWith(result.reportDir)).toBe(true);
+
+    for (const imageFormat of ['webp', 'avif', 'png', 'jpg']) {
+      const formatEntries = await fs.readdir(path.join(result.imagesDir, imageFormat));
+      expect(formatEntries.some((entryPath) => entryPath.endsWith(`.${imageExtFor(imageFormat)}`))).toBe(true);
+    }
   });
 
   it('only benchmarks the requested image formats', async () => {
@@ -103,6 +109,36 @@ describe('benchmarkArchive', () => {
 
     expect(result.variants).toHaveLength(4);
     expect(result.variants.every((v) => v.imageFormat === 'webp')).toBe(true);
+  });
+
+  it('only benchmarks the requested archive types', async () => {
+    const sourcePath = await makeSampleComicPath();
+    const reportsDir = await makeTempDir('cah-bench-reports-');
+
+    const result = await benchmarkArchive(sourcePath, {
+      reportsDir,
+      creationIterations: 1,
+      seekSamples: 1,
+      archiveTypes: ['zip', '7z'],
+      imageFormats: ['webp'],
+    });
+
+    expect(result.variants.map((v) => v.archiveType)).toEqual(['zip', '7z']);
+  });
+
+  it('rejects an empty archiveTypes list', async () => {
+    const sourcePath = await makeSampleComicPath();
+    const reportsDir = await makeTempDir('cah-bench-reports-');
+
+    await expect(benchmarkArchive(sourcePath, { reportsDir, archiveTypes: [] })).rejects.toThrow(RangeError);
+  });
+
+  it('rejects an unsupported archive type', async () => {
+    const sourcePath = await makeSampleComicPath();
+    const reportsDir = await makeTempDir('cah-bench-reports-');
+
+    // @ts-expect-error deliberately invalid at the type level too
+    await expect(benchmarkArchive(sourcePath, { reportsDir, archiveTypes: ['rar'] })).rejects.toThrow(RangeError);
   });
 
   it('rejects an empty imageFormats list', async () => {

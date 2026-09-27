@@ -1,4 +1,4 @@
-export const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'tif'] as const;
+export const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'bmp', 'tiff', 'tif'] as const;
 
 export function getExtension(entryPath: string): string {
   const match = /\.([^./\\]+)$/.exec(entryPath);

@@ -56,9 +56,9 @@ Converts an archive to `zip`, `rar`, `tar`, `asar`, or `7z`. Entries are copied 
 - `options.tempDir?: string` - Directory for staging operations that need real files, notably ASAR writes and all 7z operations.
 - `options.output?: string | Writable` - Output file path or writable stream. Without it, the function returns `Promise<Buffer>`.
 - `options.image?: { format: ImageOutputFormat; options?: ImageConvertOptions }` - Re-encode image entries while converting the archive.
-- `options.image.format` - `'webp'`, `'jpg'`, or `'png'`.
+- `options.image.format` - `'webp'`, `'avif'`, `'jpg'`, or `'png'`.
 - `options.image.options` - Image format options described under [`convertImageBuffer`](#convertimagebuffer).
-- `options.image.concurrency?: number | (() => number)` - How many images to convert at once. Defaults to `1`. A function is called again before each conversion starts, so the limit can follow the caller's load while the archive is converted. Entry order in the output is unchanged. See [`setImageConcurrency`](#setimageconcurrencythreads) for how this interacts with libuv's threadpool.
+- `options.image.concurrency?: number | (() => number)` - How many images to convert at once. Defaults to `1`. A function is called again before each conversion starts, so the limit can follow the caller's load while the archive is converted. Entry order in the output is unchanged. Image work runs on libuv's threadpool, which is shared by every worker thread in the process and defaults to 4 threads, and each image in flight holds one threadpool thread until it finishes. To run more than 4 images at once, raise `UV_THREADPOOL_SIZE` before the process first uses the threadpool.
 - `options.metadata?: Partial<Record<MetadataSchema, ComicMetadata>>` - Replaces the source's embedded comic metadata. The source's `ComicInfo.xml`/`MetronInfo.xml` entries are dropped (an ASAR source's header metadata is never copied), then each given schema is written as an ASAR header key when the target is `asar`, or as a root-level `ComicInfo.xml`/`MetronInfo.xml` entry otherwise. Without it, an ASAR source's header metadata is not carried into the output.
 
 **Example**
@@ -421,25 +421,28 @@ const withoutMetronInfo = await cah.removeComicMetadata(comicBuffer, 'MetronInfo
 
 ### `convertImageBuffer(image, format, options?)`
 
-Re-encodes an image `Buffer` as WebP, JPEG, or PNG.
+Re-encodes an image `Buffer` as WebP, AVIF, JPEG, or PNG.
 
 **Options**
 
 - `image: Buffer` - Input image bytes.
-- `format: 'webp' | 'jpg' | 'png'` - Output format.
+- `format: 'webp' | 'avif' | 'jpg' | 'png'` - Output format.
 - `options.webp.quality?: number` - WebP quality. Defaults to `92`.
-- `options.webp.effort?: number` - WebP compression effort from `0` to `6`. Defaults to `6`.
-- `options.webp.smartSubsample?: boolean` - Use sharp YUV subsampling. Defaults to `true`.
+- `options.avif.quality?: number` - AVIF quality from `0` to `100`, where `100` is lossless. Defaults to `90`.
+- `options.avif.alphaQuality?: number` - AVIF alpha channel quality from `0` to `100`. Defaults to `quality`.
+- `options.avif.speed?: number` - AVIF encoder speed from `1` (slowest, smallest) to `10` (fastest). Defaults to `4`.
+- `options.avif.chromaSubsampling?: '4:4:4' | '4:2:2' | '4:2:0' | '4:0:0'` - AVIF chroma subsampling. Defaults to `'4:4:4'`, which keeps colored line art sharp; `'4:2:0'` gives smaller files.
+- `options.avif.threads?: number` - AVIF encoder threads per image, where `0` uses every core. Defaults to `0`. Pass `1` when converting several images at once with `concurrency`.
 - `options.jpeg.quality?: number` - JPEG quality. Defaults to `90`.
-- `options.png.quality?: number` - PNG palette quality; only effective when `palette` is `true`.
-- `options.png.compressionLevel?: number` - PNG zlib compression level from `0` to `9`.
+- `options.png.quality?: number` - PNG palette quality from `0` to `100`; only effective when `palette` is `true`. Defaults to `100`.
+- `options.png.compressionLevel?: number` - PNG compression level from `0` to `9`: `0` to `3` is fast, `4` to `6` is normal, and `7` to `9` is best. Default `8`.
 - `options.png.palette?: boolean` - Enable lossy palette quantization.
 
 **Example**
 
 ```js
 const webp = await cah.convertImageBuffer(jpegBytes, 'webp', {
-  webp: { quality: 90, effort: 6, smartSubsample: true },
+  webp: { quality: 90 },
 });
 ```
 
@@ -450,8 +453,8 @@ Re-encodes image entries in an archive and updates their extensions. Non-image e
 **Options**
 
 - `input: ArchiveInput` - A filesystem path or archive `Buffer`.
-- `format: 'webp' | 'jpg' | 'png'` - Output image format.
-- `options.webp`, `options.jpeg`, `options.png` - Format-specific options listed under [`convertImageBuffer`](#convertimagebuffer).
+- `format: 'webp' | 'avif' | 'jpg' | 'png'` - Output image format.
+- `options.webp`, `options.avif`, `options.jpeg`, `options.png` - Format-specific options listed under [`convertImageBuffer`](#convertimagebuffer).
 - `options.tempDir?: string` - Temporary staging directory for ASAR or 7z operations.
 - `options.output?: string | Writable` - Output destination. Without it, returns a `Buffer`.
 - `options.concurrency?: number | (() => number)` - How many images to convert at once, as for `convertArchive`'s `options.image.concurrency`. Defaults to `1`.
@@ -465,25 +468,9 @@ const webpArchive = await cah.convertArchiveImages(comicBuffer, 'webp', {
 });
 ```
 
-### `setImageConcurrency(threads)`
-
-Sets how many libvips threads process each image and returns the value now in effect. The setting is process-wide and covers every image operation in this package. When you already parallelize across images (for example one worker thread per core), pass `1` so each image doesn't also fan out across every core. sharp's default is the CPU core count, except on glibc Linux without jemalloc, where it is already `1`.
-
-Image work runs on libuv's threadpool, which is shared by every worker thread in the process and defaults to 4 threads. To run more than 4 images at once, raise `UV_THREADPOOL_SIZE` before the process first uses the threadpool. Each image in flight (for example each of `convertArchive`'s `options.image.concurrency` conversions) holds one threadpool thread until it finishes, and a single image uses up to `threads` libvips threads on top of that.
-
-**Options**
-
-- `threads: number` - libvips threads per image.
-
-**Example**
-
-```js
-cah.setImageConcurrency(1);
-```
-
 ### `IMAGE_EXTENSIONS`
 
-Readonly list of recognized image extensions: `jpg`, `jpeg`, `png`, `gif`, `webp`, `bmp`, `tiff`, and `tif`.
+Readonly list of recognized image extensions: `jpg`, `jpeg`, `png`, `gif`, `webp`, `avif`, `bmp`, `tiff`, and `tif`.
 
 **Options**
 
@@ -648,9 +635,9 @@ const digest = await cah.sha256Archive('/books/example.cbz');
 
 ### `benchmarkArchive(filePath, options?)`
 
-Extracts a comic archive into the report's `source/` subdirectory, validates it contains image files, then generates one archive per writable container format (`zip`, `tar`, `asar`, `7z`) times benchmarked page image format (`webp`, `png`, `jpg` by default, or a subset via `options.imageFormats`). 12 variants in total by default, each containing only the original's XML and image entries, always re-encoded from the untouched source pages (never from a previously-converted variant). Benchmarks each variant's average archive-creation time (packaging only; images are re-encoded once per format before timing starts) and average random single-entry read time, writes the generated archives and a markdown report to a timestamped subdirectory, and returns the results.
+Extracts a comic archive into the report's `source/` subdirectory, validates it contains image files, then generates one archive per benchmarked writable container format (`zip`, `tar`, `asar`, `7z` by default, or a subset via `options.archiveTypes`) times benchmarked page image format (`webp`, `avif`, `png`, `jpg` by default, or a subset via `options.imageFormats`). 16 variants in total by default, each containing only the original's XML and image entries, always re-encoded from the untouched source pages (never from a previously-converted variant). Benchmarks each variant's average archive-creation time (packaging only; images are re-encoded once per format before timing starts) and average random single-entry read time, writes the generated archives, each format's converted pages (under `images/<format>/`), and a markdown report to a timestamped subdirectory, and returns the results.
 
-Throws `ArchiveFormatError` (undetectable format) or `UnsupportedOperationError` (ACE) if `filePath` isn't extractable, `NoImagesFoundError` if the archive has no image files, `FilesystemAccessError` if `filePath` doesn't exist, and `RangeError` if `options.imageFormats` is empty or names an unsupported format.
+Throws `ArchiveFormatError` (undetectable format) or `UnsupportedOperationError` (ACE) if `filePath` isn't extractable, `NoImagesFoundError` if the archive has no image files, `FilesystemAccessError` if `filePath` doesn't exist, and `RangeError` if `options.archiveTypes` or `options.imageFormats` is empty or names an unsupported value.
 
 **Options**
 
@@ -659,8 +646,9 @@ Throws `ArchiveFormatError` (undetectable format) or `UnsupportedOperationError`
 - `options.reportsDir?: string` - Directory the dated report subdirectory is created under. Defaults to `./reports` (relative to `process.cwd()`).
 - `options.creationIterations?: number` - Timed creation runs to average per variant. Defaults to `3`, minimum `1`.
 - `options.seekSamples?: number` - Random single-entry reads to average per variant. Defaults to `10`, minimum `1`.
-- `options.imageFormats?: ImageOutputFormat[]` - Image formats to benchmark. Defaults to all of `BENCHMARK_IMAGE_FORMATS` (`webp`, `png`, `jpg`). Must be non-empty and only name supported formats.
-- `options.image?: ImageConvertOptions` - Image encode options (`webp`, `jpeg`, `png`) applied uniformly across every generated variant.
+- `options.archiveTypes?: WritableArchiveType[]` - Archive container formats to benchmark. Defaults to all of `WRITABLE_ARCHIVE_TYPES` (`zip`, `tar`, `asar`, `7z`). Must be non-empty and only name supported types.
+- `options.imageFormats?: ImageOutputFormat[]` - Image formats to benchmark. Defaults to all of `BENCHMARK_IMAGE_FORMATS` (`webp`, `avif`, `png`, `jpg`). Must be non-empty and only name supported formats.
+- `options.image?: ImageConvertOptions` - Image encode options (`webp`, `avif`, `jpeg`, `png`) applied uniformly across every generated variant.
 
 **Example**
 
@@ -693,7 +681,7 @@ const markdown = cah.renderBenchmarkReportMarkdown(result);
 
 ### `WRITABLE_ARCHIVE_TYPES`, `BENCHMARK_IMAGE_FORMATS`, `ARCHIVE_TYPE_EXTENSIONS`
 
-Constants describing the combinations `benchmarkArchive` generates: the writable container formats (`'zip' | 'tar' | 'asar' | '7z'`), the benchmarked image formats (`'webp' | 'png' | 'jpg'`), and the conventional comic-archive extension for each container format (`{ zip: 'cbz', tar: 'cbt', asar: 'cbas', '7z': 'cb7' }`).
+Constants describing the combinations `benchmarkArchive` generates: the writable container formats (`'zip' | 'tar' | 'asar' | '7z'`), the benchmarked image formats (`'webp' | 'avif' | 'png' | 'jpg'`), and the conventional comic-archive extension for each container format (`{ zip: 'cbz', tar: 'cbt', asar: 'cbas', '7z': 'cb7' }`).
 
 **Options**
 
@@ -712,15 +700,16 @@ The following types are exported for TypeScript consumers.
 - `ArchiveType` - `'zip' | 'rar' | 'tar' | 'asar' | '7z' | 'ace' | 'unknown'`.
 - `ArchiveInput` - `Buffer | string`.
 - `MetadataSchema` - `'ComicInfo' | 'MetronInfo'`.
-- `ImageOutputFormat` - `'webp' | 'jpg' | 'png'`.
+- `ImageOutputFormat` - `'webp' | 'avif' | 'jpg' | 'png'`.
 - `ArchiveWriteOptions` - Shared `tempDir?` and `output?` options.
 - `ConvertArchiveOptions` - Archive write options plus `image?: { format, options? }`.
 - `AddMetadataOptions` - Archive write options plus `overwrite?: boolean`.
 - `RenameOptions` - Archive write options plus `start?: number` and `pad?: number`.
 - `StripOptions` - Archive write options plus `extraKeepExtensions?: string[]`.
 - `RemoveEntryOptions` - Archive write options (no additional fields).
-- `ImageConvertOptions` - `webp?`, `jpeg?`, and `png?` format option groups.
-- `WebpOptions` - `quality?`, `effort?`, and `smartSubsample?`.
+- `ImageConvertOptions` - `webp?`, `avif?`, `jpeg?`, and `png?` format option groups.
+- `WebpOptions` - `quality?`.
+- `AvifOptions` - `quality?`, `alphaQuality?`, `speed?`, `chromaSubsampling?`, and `threads?`.
 - `JpegOptions` - `quality?`.
 - `PngOptions` - `quality?`, `compressionLevel?`, and `palette?`.
 - `ComicMetadata` - Canonical metadata object; see the metadata section above.
@@ -742,9 +731,9 @@ The following types are exported for TypeScript consumers.
 - `ImageDimensions` - `{ width: number; height: number }`.
 - `ImageInfo` - `ImageDimensions & { type: string }`, returned by `readImageInfo`.
 - `WritableArchiveType` - `'zip' | 'tar' | 'asar' | '7z'`.
-- `BenchmarkArchiveOptions` - `{ tempDir?, reportsDir?, creationIterations?, seekSamples?, imageFormats?, image? }`; see [`benchmarkArchive`](#benchmarkarchivefilepath-options).
+- `BenchmarkArchiveOptions` - `{ tempDir?, reportsDir?, creationIterations?, seekSamples?, archiveTypes?, imageFormats?, image? }`; see [`benchmarkArchive`](#benchmarkarchivefilepath-options).
 - `BenchmarkVariantResult` - One generated variant's stats: `{ archiveType, imageFormat, fileName, filePath, fileSizeBytes, pageCount, avgImageSizeBytes, avgCreationMs, avgSeekMs }`. `avgImageSizeBytes` (average size of one converted page) depends only on `imageFormat`, not `archiveType`.
-- `BenchmarkArchiveResult` - `{ sourcePath, generatedAt, reportDir, reportPath, sourceDir, archivesDir, variants: BenchmarkVariantResult[] }`, returned by `benchmarkArchive`. `sourceDir` holds every entry extracted from the source archive, for inspection alongside the generated `archivesDir` and `reportPath`.
+- `BenchmarkArchiveResult` - `{ sourcePath, generatedAt, reportDir, reportPath, sourceDir, imagesDir, archivesDir, variants: BenchmarkVariantResult[] }`, returned by `benchmarkArchive`. `sourceDir` holds every entry extracted from the source archive, and `imagesDir` holds one subdirectory per benchmarked image format (such as `images/webp/`) containing every entry after conversion to that format, for inspection alongside the generated `archivesDir` and `reportPath`.
 
 **Example**
 

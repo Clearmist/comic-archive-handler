@@ -47,7 +47,7 @@ const renamed = await cah.renameArchiveImagesSequentially(withMetadata); // P000
 const stripped = await cah.stripNonEssentialFiles(renamed); // keeps only images + .xml
 
 /* Convert all of the images to WebP */
-const webp = await cah.convertArchiveImages(stripped, 'webp', { webp: { quality: 92, effort: 6, smartSubsample: true } });
+const webp = await cah.convertArchiveImages(stripped, 'webp', { webp: { quality: 92 } });
 
 /* Generate hashes */
 const contentHash = await cah.sha256Archive(webp); // For asar this hashes only the content region (not the header/index).
@@ -68,7 +68,7 @@ await cah.convertArchive('/path/to/large.cbz', 'zip', { output: '/path/to/output
 
 ### Benchmarking archive/image format combinations
 
-`benchmarkArchive` extracts a comic archive, generates every writable-container × page-image-format combination (12 archives: zip/tar/asar/7z × webp/png/jpg), times each one's creation and random single-page read speed, and writes the generated archives plus a markdown report to a timestamped `reports/<datetime>/` directory:
+`benchmarkArchive` extracts a comic archive, generates every writable-container × page-image-format combination (16 archives: zip/tar/asar/7z × webp/avif/png/jpg), times each one's creation and random single-page read speed, and writes the generated archives, each format's converted pages, and a markdown report to a timestamped `reports/<datetime>/` directory:
 
 ```js
 const result = await cah.benchmarkArchive('/path/to/comic.cbz');
@@ -115,6 +115,7 @@ This means that both are good candidates for remote digital libraries. Asar if t
 | Format | Detectable | Readable | Writable | Archival quality |
 | ------ | ---------- | -------- | -------- | ---------------- |
 | WebP   | ✅         | ✅       | ✅       | Excellent        |
+| AVIF   | ✅         | ✅       | ✅       | Excellent        |
 | PNG    | ✅         | ✅       | ✅       | Excellent        |
 | JPEG   | ✅         | ✅       | ✅       | Good             |
 | GIF    | ✅         | ✅       | ❌       | Poor             |
@@ -136,7 +137,7 @@ GIF, BMP, and TIFF are intentionally not included as writable because of their p
 - **asar metadata lives in the archive's own header, not as a `ComicInfo.xml`/`MetronInfo.xml` entry.** `hasComicMetadata`/`readArchiveMetadata`/`addMetadataToArchive`/`removeComicMetadata` all handle this transparently for asar inputs (metadata is set/read as a `comicMetadata` key on the header JSON alongside the existing `files` key. See `src/internal/asarHeader.ts`'s `writeAsarHeaderPatch`/`serializeAsarHeader`), so calling code doesn't need to branch on archive type. Adding metadata to an asar archive patches its header directly rather than repackaging via `createPackage`, and is correspondingly cheaper than the equivalent zip/tar/7z write. A `ComicInfo.xml`/`MetronInfo.xml` entry inside an asar archive is never read as metadata.
 - Any operation that needs a staging directory (asar writes, any 7z operation) accepts a `tempDir` option; if omitted, a directory under `os.tmpdir()` is used, and a clear `FilesystemAccessError` is thrown if no writable directory is available.
 - Metadata conversion between the canonical schema and ComicInfo.xml/MetronInfo.xml is intentionally lossy in both directions. See the field-mapping table in `src/metadata/schema.ts`.
-- PNG conversion's `quality` option only has an effect when `palette: true` is also set (an upstream `sharp`/libvips behavior).
+- PNG conversion's `quality` option only has an effect when `palette: true` is also set since it sets the palette quantizer's maximum quality.
 
 ## Official schemas
 

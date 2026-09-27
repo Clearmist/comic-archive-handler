@@ -13,7 +13,6 @@ import { averageDuration, averageDurationOverItems } from './timing.js';
 import { renderBenchmarkReportMarkdown } from './report.js';
 import { WRITABLE_ARCHIVE_TYPES, BENCHMARK_IMAGE_FORMATS, ARCHIVE_TYPE_EXTENSIONS } from './types.js';
 import type { BenchmarkArchiveOptions, BenchmarkArchiveResult, BenchmarkVariantResult } from './types.js';
-import type { ImageOutputFormat } from '../types.js';
 
 function timestampForDirName(date: Date): string {
   return date
@@ -41,8 +40,7 @@ function pickRandomSamples<T>(items: T[], count: number): T[] {
  * container it ends up packaged in ("transfer size": what a client
  * actually downloads to fetch a single page).
  */
-async function averageConvertedImageSize(preConverted: Buffer, imageFormat: ImageOutputFormat, tempDir: string): Promise<number> {
-  const extractDir = path.join(tempDir, `preconverted-${imageFormat}`);
+async function averageConvertedImageSize(preConverted: Buffer, extractDir: string, tempDir: string): Promise<number> {
   const entries = await extractArchive(preConverted, extractDir, { tempDir });
   const imagePaths = entries.filter((entryPath) => isImagePath(entryPath));
 
@@ -71,8 +69,8 @@ async function averageConvertedImageSize(preConverted: Buffer, imageFormat: Imag
  * Throws `ArchiveFormatError` (undetectable format) or
  * `UnsupportedOperationError` (ACE) if `filePath` is not extractable,
  * `NoImagesFoundError` if the archive contains no image files, and
- * `RangeError` if `options.imageFormats` is empty or names an unsupported
- * format.
+ * `RangeError` if `options.archiveTypes` or `options.imageFormats` is empty
+ * or names an unsupported value.
  */
 export async function benchmarkArchive(filePath: string, options: BenchmarkArchiveOptions = {}): Promise<BenchmarkArchiveResult> {
   try {
@@ -83,7 +81,20 @@ export async function benchmarkArchive(filePath: string, options: BenchmarkArchi
 
   const creationIterations = Math.max(1, options.creationIterations ?? 3);
   const seekSamples = Math.max(1, options.seekSamples ?? 10);
+  const archiveTypes = options.archiveTypes ?? WRITABLE_ARCHIVE_TYPES;
   const imageFormats = options.imageFormats ?? BENCHMARK_IMAGE_FORMATS;
+
+  if (archiveTypes.length === 0) {
+    throw new RangeError('options.archiveTypes must include at least one archive type.');
+  }
+
+  const unsupportedArchiveTypes = archiveTypes.filter((type) => !WRITABLE_ARCHIVE_TYPES.includes(type));
+
+  if (unsupportedArchiveTypes.length > 0) {
+    throw new RangeError(
+      `Unsupported archive type(s): ${unsupportedArchiveTypes.join(', ')}. Supported types: ${WRITABLE_ARCHIVE_TYPES.join(', ')}.`,
+    );
+  }
 
   if (imageFormats.length === 0) {
     throw new RangeError('options.imageFormats must include at least one image format.');
@@ -104,6 +115,7 @@ export async function benchmarkArchive(filePath: string, options: BenchmarkArchi
     const reportsRoot = options.reportsDir ?? path.join(process.cwd(), 'reports');
     const reportDir = path.join(reportsRoot, timestampForDirName(generatedAt));
     const sourceDir = path.join(reportDir, 'source');
+    const imagesDir = path.join(reportDir, 'images');
     const archivesDir = path.join(reportDir, 'archives');
 
     await fs.mkdir(archivesDir, { recursive: true });
@@ -125,9 +137,11 @@ export async function benchmarkArchive(filePath: string, options: BenchmarkArchi
 
     for (const imageFormat of imageFormats) {
       const preConverted = (await convertArchiveImages(stripped, imageFormat, { ...options.image, tempDir })) as Buffer;
-      const avgImageSizeBytes = await averageConvertedImageSize(preConverted, imageFormat, tempDir);
+      // Extracted under the report directory so each format's converted
+      // pages can be inspected alongside the source pages.
+      const avgImageSizeBytes = await averageConvertedImageSize(preConverted, path.join(imagesDir, imageFormat), tempDir);
 
-      for (const archiveType of WRITABLE_ARCHIVE_TYPES) {
+      for (const archiveType of archiveTypes) {
         const fileName = `${archiveType}-${imageFormat}.${ARCHIVE_TYPE_EXTENSIONS[archiveType]}`;
         const outputPath = path.join(archivesDir, fileName);
 
@@ -164,6 +178,7 @@ export async function benchmarkArchive(filePath: string, options: BenchmarkArchi
       reportDir,
       reportPath: path.join(reportDir, 'report.md'),
       sourceDir,
+      imagesDir,
       archivesDir,
       variants,
     };

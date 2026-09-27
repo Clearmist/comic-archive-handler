@@ -1,49 +1,62 @@
 import { describe, it, expect } from 'vitest';
-import sharp from 'sharp';
+import { Transformer } from '@napi-rs/image';
 import { zipSync } from 'fflate';
 import { convertImageBuffer, convertArchiveImages } from './convert.js';
 import { listArchiveFiles } from '../listFiles.js';
+import { solidImage } from '../internal/testImages.js';
 
 async function makeTestPng(): Promise<Buffer> {
-  return sharp({
-    create: { width: 16, height: 16, channels: 3, background: { r: 10, g: 200, b: 30 } },
-  })
-    .png()
-    .toBuffer();
+  return solidImage(16, 16, { r: 10, g: 200, b: 30 }).png();
 }
 
 describe('convertImageBuffer', () => {
-  it('converts to webp with the required defaults (quality 92, effort 6, smartSubsample true)', async () => {
+  it('converts to webp with default quality 92', async () => {
     const png = await makeTestPng();
     const webp = await convertImageBuffer(png, 'webp');
-    const metadata = await sharp(webp).metadata();
+    const metadata = await new Transformer(webp).metadata();
 
     expect(metadata.format).toBe('webp');
+  });
+
+  it('converts to avif with default quality 80', async () => {
+    const png = await makeTestPng();
+    const avif = await convertImageBuffer(png, 'avif');
+    const metadata = await new Transformer(avif).metadata();
+
+    expect(metadata.format).toBe('avif');
+  });
+
+  it('honors avif quality and chroma subsampling overrides', async () => {
+    const png = await makeTestPng();
+    const full = await convertImageBuffer(png, 'avif', { avif: { quality: 90, chromaSubsampling: '4:4:4' } });
+    const subsampled = await convertImageBuffer(png, 'avif', { avif: { quality: 30, speed: 10, chromaSubsampling: '4:2:0' } });
+
+    expect(subsampled.length).toBeLessThan(full.length);
   });
 
   it('converts to jpg with default quality 90', async () => {
     const png = await makeTestPng();
     const jpg = await convertImageBuffer(png, 'jpg');
-    const metadata = await sharp(jpg).metadata();
+    const metadata = await new Transformer(jpg).metadata();
 
     expect(metadata.format).toBe('jpeg');
   });
 
-  it('honors explicit webp quality/effort overrides', async () => {
+  it('honors explicit webp quality overrides', async () => {
     const png = await makeTestPng();
-    const highQuality = await convertImageBuffer(png, 'webp', { webp: { quality: 100, effort: 6 } });
-    const lowQuality = await convertImageBuffer(png, 'webp', { webp: { quality: 10, effort: 0 } });
+    const highQuality = await convertImageBuffer(png, 'webp', { webp: { quality: 100 } });
+    const lowQuality = await convertImageBuffer(png, 'webp', { webp: { quality: 10 } });
 
     expect(highQuality.length).toBeGreaterThan(0);
     expect(lowQuality.length).toBeGreaterThan(0);
   });
 
-  it('PNG quality only takes effect when palette is enabled (documented sharp gotcha)', async () => {
+  it('PNG quality only takes effect when palette is enabled (it drives palette quantization)', async () => {
     const png = await makeTestPng();
     const withoutPalette = await convertImageBuffer(png, 'png', { png: { quality: 10 } });
     const withPalette = await convertImageBuffer(png, 'png', { png: { quality: 10, palette: true } });
-    const metaWithout = await sharp(withoutPalette).metadata();
-    const metaWith = await sharp(withPalette).metadata();
+    const metaWithout = await new Transformer(withoutPalette).metadata();
+    const metaWith = await new Transformer(withPalette).metadata();
 
     expect(metaWithout.format).toBe('png');
     expect(metaWith.format).toBe('png');

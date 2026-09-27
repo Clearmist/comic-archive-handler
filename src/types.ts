@@ -7,15 +7,24 @@ export type ArchiveInput = Buffer | string;
 
 export type MetadataSchema = 'ComicInfo' | 'MetronInfo';
 
-export type ImageOutputFormat = 'webp' | 'jpg' | 'png';
+export type ImageOutputFormat = 'webp' | 'avif' | 'jpg' | 'png';
 
 export interface WebpOptions {
   /** Default 92. */
   quality?: number;
-  /** Explanation: libwebp's `-m` compression method (0-6). Default 6. */
-  effort?: number;
-  /** Explanation: libwebp's `-sharp_yuv`. Default true. */
-  smartSubsample?: boolean;
+}
+
+export interface AvifOptions {
+  /** 0-100, where 100 is lossless. Default 90. */
+  quality?: number;
+  /** 0-100 quality of the alpha channel. Defaults to `quality`. */
+  alphaQuality?: number;
+  /** Explanation: rav1e's speed preset, from 1 (slowest, smallest) to 10 (fastest). Default 4. */
+  speed?: number;
+  /** Default `'4:4:4'`, which keeps colored line art sharp. `'4:2:0'` gives smaller files. */
+  chromaSubsampling?: '4:4:4' | '4:2:2' | '4:2:0' | '4:0:0';
+  /** Encoder threads per image, where 0 uses every core. Default 0. Pass 1 when converting several images at once. */
+  threads?: number;
 }
 
 export interface JpegOptions {
@@ -24,9 +33,9 @@ export interface JpegOptions {
 }
 
 export interface PngOptions {
-  /** Only has an effect when `palette` is true. */
+  /** Only has an effect when `palette` is true. Default 100. */
   quality?: number;
-  /** Zlib compression level (0-9). */
+  /** Compression level (0-9): 0-3 is fast, 4-6 is normal, and 7-9 is best. Default 8. */
   compressionLevel?: number;
   /** Enables lossy palette quantization (required for `quality` to matter). */
   palette?: boolean;
@@ -34,6 +43,7 @@ export interface PngOptions {
 
 export interface ImageConvertOptions {
   webp?: WebpOptions;
+  avif?: AvifOptions;
   jpeg?: JpegOptions;
   png?: PngOptions;
 }

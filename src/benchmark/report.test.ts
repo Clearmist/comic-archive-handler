@@ -24,6 +24,7 @@ function result(variants: BenchmarkVariantResult[]): BenchmarkArchiveResult {
     reportDir: '/reports/2026-09-12T00-00-00Z',
     reportPath: '/reports/2026-09-12T00-00-00Z/report.md',
     sourceDir: '/reports/2026-09-12T00-00-00Z/source',
+    imagesDir: '/reports/2026-09-12T00-00-00Z/images',
     archivesDir: '/reports/2026-09-12T00-00-00Z/archives',
     variants,
   };

@@ -5,7 +5,7 @@ export type WritableArchiveType = Extract<ArchiveType, 'zip' | 'tar' | 'asar' | 
 
 export const WRITABLE_ARCHIVE_TYPES: readonly WritableArchiveType[] = ['zip', 'tar', 'asar', '7z'];
 
-export const BENCHMARK_IMAGE_FORMATS: readonly ImageOutputFormat[] = ['webp', 'png', 'jpg'];
+export const BENCHMARK_IMAGE_FORMATS: readonly ImageOutputFormat[] = ['webp', 'avif', 'png', 'jpg'];
 
 /** Conventional comic archive extension for each writable container format. */
 export const ARCHIVE_TYPE_EXTENSIONS: Record<WritableArchiveType, string> = {
@@ -24,7 +24,9 @@ export interface BenchmarkArchiveOptions {
   creationIterations?: number;
   /** Number of random single-entry reads to average per variant. Defaults to 10, minimum 1. */
   seekSamples?: number;
-  /** Image formats to benchmark. Defaults to all of `BENCHMARK_IMAGE_FORMATS` (webp, png, jpg). Must be non-empty. */
+  /** Archive container formats to benchmark. Defaults to all of `WRITABLE_ARCHIVE_TYPES` (zip, tar, asar, 7z). Must be non-empty. */
+  archiveTypes?: WritableArchiveType[];
+  /** Image formats to benchmark. Defaults to all of `BENCHMARK_IMAGE_FORMATS` (webp, avif, png, jpg). Must be non-empty. */
   imageFormats?: ImageOutputFormat[];
   /** Image encode options applied uniformly across every generated variant. */
   image?: ImageConvertOptions;
@@ -53,6 +55,8 @@ export interface BenchmarkArchiveResult {
   reportPath: string;
   /** Every entry from the source archive, extracted here for inspection. */
   sourceDir: string;
+  /** Holds one subdirectory per benchmarked image format (e.g. "webp", "png"), each containing every entry after conversion to that format. */
+  imagesDir: string;
   archivesDir: string;
   variants: BenchmarkVariantResult[];
 }

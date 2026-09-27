@@ -1,4 +1,4 @@
-import sharp from 'sharp';
+import { JsColorType, ResizeFilterType, ResizeFit, Transformer } from '@napi-rs/image';
 import type { ArchiveInput } from '../types.js';
 import { getAdapter } from '../archive/index.js';
 import { detectArchiveType } from '../detect.js';
@@ -42,6 +42,32 @@ function dct2d(matrix: number[][]): number[][] {
   return result;
 }
 
+/**
+ * `grayscale()` keeps the source's alpha channel and bit depth (and leaves
+ * 32-bit float images as greyscale RGB/RGBA), so returns a reader for the
+ * 0-255 luma of each pixel in the raw buffer for the source's color type.
+ */
+function lumaReader(pixels: Buffer, colorType: JsColorType): (index: number) => number {
+  switch (colorType) {
+    case JsColorType.L8:
+    case JsColorType.Rgb8:
+      return (index) => pixels[index]!;
+    case JsColorType.La8:
+    case JsColorType.Rgba8:
+      return (index) => pixels[index * 2]!;
+    case JsColorType.L16:
+    case JsColorType.Rgb16:
+      return (index) => pixels.readUInt16LE(index * 2) / 257;
+    case JsColorType.La16:
+    case JsColorType.Rgba16:
+      return (index) => pixels.readUInt16LE(index * 4) / 257;
+    case JsColorType.Rgb32F:
+      return (index) => pixels.readFloatLE(index * 12) * 255;
+    case JsColorType.Rgba32F:
+      return (index) => pixels.readFloatLE(index * 16) * 255;
+  }
+}
+
 function median(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
@@ -57,7 +83,12 @@ function median(values: number[]): number {
  * `Number` cannot losslessly represent all 64-bit patterns.
  */
 export async function computeImagePHash(image: Buffer): Promise<bigint> {
-  const pixels = await sharp(image).resize(HASH_SIZE, HASH_SIZE, { fit: 'fill' }).greyscale().raw().toBuffer();
+  const { colorType } = await new Transformer(image).metadata();
+  const pixels = await new Transformer(image)
+    .resize(HASH_SIZE, HASH_SIZE, ResizeFilterType.Lanczos3, ResizeFit.Fill)
+    .grayscale()
+    .rawPixels();
+  const luma = lumaReader(pixels, colorType);
 
   const matrix: number[][] = [];
 
@@ -65,7 +96,7 @@ export async function computeImagePHash(image: Buffer): Promise<bigint> {
     const row: number[] = [];
 
     for (let x = 0; x < HASH_SIZE; x++) {
-      row.push(pixels[y * HASH_SIZE + x]!);
+      row.push(luma(y * HASH_SIZE + x));
     }
 
     matrix.push(row);

@@ -1,15 +1,22 @@
 #!/usr/bin/env node
 // Manual test script for benchmarkArchive(). Run `npm run build` first, then:
-//   node benchmark.js <path-to-archive> [--creation-iterations=N] [--seek-samples=N] [--reports-dir=DIR] [--image-formats=webp,png,jpg]
+//   node benchmark.js <path-to-archive> [--creation-iterations=N] [--seek-samples=N] [--reports-dir=DIR] [--archive-types=zip,tar,asar,7z] [--image-formats=webp,avif,png,jpg]
 
 import cah from './dist/index.mjs';
 
 const filePath = process.argv[2];
-const usage =
-  'Usage: node benchmark.js <path-to-archive> [--creation-iterations=N] [--seek-samples=N] [--reports-dir=DIR] [--image-formats=webp,png,jpg]';
+const usage = [
+  'Usage: node benchmark.js',
+  '<path-to-archive>',
+  '[--creation-iterations=N]',
+  '[--seek-samples=N]',
+  '[--reports-dir=DIR]',
+  '[--archive-types=zip,tar,asar,7z]',
+  '[--image-formats=webp,avif,png,jpg]',
+];
 
 if (!filePath) {
-  console.error(usage);
+  console.error(usage.join(' '));
   process.exit(1);
 }
 
@@ -19,27 +26,35 @@ function flag(name, fallback) {
   return arg ? arg.slice(prefix.length) : fallback;
 }
 
-const imageFormatsFlag = flag('image-formats', undefined);
+function listFlag(name) {
+  const value = flag(name, undefined);
+
+  return value
+    ? value
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : undefined;
+}
 
 const options = {
   creationIterations: Number(flag('creation-iterations', '3')),
   seekSamples: Number(flag('seek-samples', '10')),
   reportsDir: flag('reports-dir', undefined),
-  imageFormats: imageFormatsFlag
-    ? imageFormatsFlag
-        .split(',')
-        .map((format) => format.trim())
-        .filter(Boolean)
-    : undefined,
+  archiveTypes: listFlag('archive-types'),
+  imageFormats: listFlag('image-formats'),
 };
 
+const archiveTypes = options.archiveTypes ?? cah.WRITABLE_ARCHIVE_TYPES;
 const imageFormats = options.imageFormats ?? cah.BENCHMARK_IMAGE_FORMATS;
 
 console.log(`Benchmarking "${filePath}"`);
-console.log(`  creationIterations=${options.creationIterations} seekSamples=${options.seekSamples} imageFormats=${imageFormats.join(',')}`);
 console.log(
-  `This creates ${cah.WRITABLE_ARCHIVE_TYPES.length * imageFormats.length} archives ` +
-    `(${cah.WRITABLE_ARCHIVE_TYPES.join('/')} x ${imageFormats.join('/')}) and may take a while...\n`,
+  `  creationIterations=${options.creationIterations} seekSamples=${options.seekSamples} archiveTypes=${archiveTypes.join(',')} imageFormats=${imageFormats.join(',')}`,
+);
+console.log(
+  `This creates ${archiveTypes.length * imageFormats.length} archives ` +
+    `(${archiveTypes.join('/')} x ${imageFormats.join('/')}) and may take a while...\n`,
 );
 
 const start = Date.now();
@@ -60,6 +75,7 @@ try {
   }
 
   console.log(`\nReport:   ${result.reportPath}`);
+  console.log(`Images:   ${result.imagesDir}`);
   console.log(`Archives: ${result.archivesDir}`);
 } catch (error) {
   console.error(`\nBenchmark failed: ${error.message}`);

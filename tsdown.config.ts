@@ -7,6 +7,6 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   deps: {
-    neverBundle: ['sharp', 'node-unrar-js', '7zip-bin-full', '@electron/asar', 'xmllint-wasm'],
+    neverBundle: ['@napi-rs/image', 'node-unrar-js', '7zip-bin-full', '@electron/asar', 'xmllint-wasm'],
   },
 });

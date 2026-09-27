@@ -1,11 +1,25 @@
 import { describe, it, expect } from 'vitest';
-import sharp from 'sharp';
+import { Transformer } from '@napi-rs/image';
 import { computeImagePHash, phashToHex, hammingDistance } from './phash.js';
+import { solidImage } from '../internal/testImages.js';
+
+/** Concentric rings, so the hash reflects real structure rather than floating-point noise in a flat image's DCT. */
+async function rings(): Promise<Buffer> {
+  const size = 64;
+  const pixels = new Uint8Array(size * size * 4);
+
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const value = Math.round(128 + 120 * Math.cos(Math.hypot(x - 20, y - 26) / 6));
+      pixels.set([value, 255 - value, value >> 1, 255], (y * size + x) * 4);
+    }
+  }
+
+  return Transformer.fromRgbaPixels(pixels, size, size).png();
+}
 
 async function solidColor(r: number, g: number, b: number): Promise<Buffer> {
-  return sharp({ create: { width: 64, height: 64, channels: 3, background: { r, g, b } } })
-    .png()
-    .toBuffer();
+  return solidImage(64, 64, { r, g, b }).png();
 }
 
 describe('computeImagePHash', () => {
@@ -19,8 +33,8 @@ describe('computeImagePHash', () => {
   });
 
   it('gives a small distance for a near-duplicate (recompressed) image', async () => {
-    const original = await solidColor(120, 180, 40);
-    const recompressed = await sharp(original).jpeg({ quality: 70 }).toBuffer();
+    const original = await rings();
+    const recompressed = await new Transformer(original).jpeg(70);
 
     const hashA = await computeImagePHash(original);
     const hashB = await computeImagePHash(recompressed);
@@ -30,22 +44,8 @@ describe('computeImagePHash', () => {
 
   it('gives a larger distance for a clearly different image', async () => {
     const imageA = await solidColor(255, 0, 0);
-    const imageB = await sharp({
-      create: { width: 64, height: 64, channels: 3, background: { r: 0, g: 0, b: 0 } },
-    })
-      .composite([
-        {
-          input: await sharp({
-            create: { width: 32, height: 64, channels: 3, background: { r: 255, g: 255, b: 255 } },
-          })
-            .png()
-            .toBuffer(),
-          left: 32,
-          top: 0,
-        },
-      ])
-      .png()
-      .toBuffer();
+    const whiteHalf = await solidImage(32, 64, { r: 255, g: 255, b: 255 }).png();
+    const imageB = await solidImage(64, 64, { r: 0, g: 0, b: 0 }).overlay(whiteHalf, 32, 0).png();
 
     const hashA = await computeImagePHash(imageA);
     const hashB = await computeImagePHash(imageB);

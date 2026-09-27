@@ -1,6 +1,6 @@
 {
   "name": "@clearmist-labs/comic-archive-handler",
-  "version": "1.7.0",
+  "version": "2.0.0",
   "description": "Detect, convert, and manipulate comic book archives: container conversion, edit metadata, image re-encoding, perceptual + content hashing.",
   "keywords": [
     "7z",
@@ -60,11 +60,11 @@
   "dependencies": {
     "7zip-bin-full": "^26.3.1",
     "@electron/asar": "^4.3.0",
+    "@napi-rs/image": "^1.15.0",
     "fast-xml-parser": "^5.11.1",
     "fflate": "^0.8.3",
     "file-type": "^22.1.0",
     "node-unrar-js": "^2.0.2",
-    "sharp": "^0.35.4",
     "tar-stream": "^3.2.1",
     "xmllint-wasm": "^5.3.0"
   },

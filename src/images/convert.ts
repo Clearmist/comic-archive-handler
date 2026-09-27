@@ -1,6 +1,6 @@
-import sharp from 'sharp';
+import { ChromaSubsampling, CompressionType, Transformer, pngQuantize } from '@napi-rs/image';
 import { Readable } from 'node:stream';
-import type { ArchiveInput, ImageConcurrency, ImageConvertOptions, ImageOutputFormat } from '../types.js';
+import type { ArchiveInput, AvifOptions, ImageConcurrency, ImageConvertOptions, ImageOutputFormat } from '../types.js';
 import { getAdapter } from '../archive/index.js';
 import { detectArchiveType } from '../detect.js';
 import { withOutput } from '../internal/collectOutput.js';
@@ -8,32 +8,44 @@ import { convertEntriesConcurrently } from '../internal/convertEntriesConcurrent
 import { isImagePath, getExtension } from './isImage.js';
 import type { ArchiveWriteOptions } from '../types.js';
 
+const CHROMA_SUBSAMPLING: Record<NonNullable<AvifOptions['chromaSubsampling']>, ChromaSubsampling> = {
+  '4:4:4': ChromaSubsampling.Yuv444,
+  '4:2:2': ChromaSubsampling.Yuv422,
+  '4:2:0': ChromaSubsampling.Yuv420,
+  '4:0:0': ChromaSubsampling.Yuv400,
+};
+
+function pngCompressionType(level: number): CompressionType {
+  return level <= 3 ? CompressionType.Fast : level >= 7 ? CompressionType.Best : CompressionType.Default;
+}
+
 export async function convertImageBuffer(image: Buffer, format: ImageOutputFormat, options: ImageConvertOptions = {}): Promise<Buffer> {
-  let pipeline = sharp(image);
+  const transformer = new Transformer(image);
 
   if (format === 'webp') {
-    const webp = options.webp ?? {};
+    return transformer.webp(options.webp?.quality ?? 92);
+  }
 
-    pipeline = pipeline.webp({
-      quality: webp.quality ?? 92,
-      effort: webp.effort ?? 6,
-      smartSubsample: webp.smartSubsample ?? true,
-    });
-  } else if (format === 'jpg') {
-    const jpeg = options.jpeg ?? {};
+  if (format === 'avif') {
+    const avif = options.avif ?? {};
 
-    pipeline = pipeline.jpeg({ quality: jpeg.quality ?? 90 });
-  } else {
-    const png = options.png ?? {};
-
-    pipeline = pipeline.png({
-      quality: png.quality,
-      compressionLevel: png.compressionLevel,
-      palette: png.palette,
+    return transformer.avif({
+      quality: avif.quality ?? 90,
+      alphaQuality: avif.alphaQuality,
+      speed: avif.speed ?? 4,
+      chromaSubsampling: CHROMA_SUBSAMPLING[avif.chromaSubsampling ?? '4:4:4'],
+      threads: avif.threads,
     });
   }
 
-  return pipeline.toBuffer();
+  if (format === 'jpg') {
+    return transformer.jpeg(options.jpeg?.quality ?? 90);
+  }
+
+  const png = options.png ?? {};
+  const encoded = await transformer.png({ compressionType: pngCompressionType(png.compressionLevel ?? 8) });
+
+  return png.palette ? pngQuantize(encoded, { minQuality: 0, maxQuality: png.quality ?? 100 }) : encoded;
 }
 
 function replaceExtension(entryPath: string, format: ImageOutputFormat): string {

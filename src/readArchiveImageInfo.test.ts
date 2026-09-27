@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import sharp from 'sharp';
 import { zipSync, strToU8 } from 'fflate';
 import { readArchiveImageInfo } from './readArchiveImageInfo.js';
+import { solidImage as solidColorImage } from './internal/testImages.js';
 
 function solidImage(width: number, height: number) {
-  return sharp({ create: { width, height, channels: 3, background: { r: 10, g: 20, b: 30 } } });
+  return solidColorImage(width, height, { r: 10, g: 20, b: 30 });
 }
 
 function bmp(width: number, height: number): Buffer {
@@ -25,9 +25,9 @@ describe('readArchiveImageInfo', () => {
   it('returns the name, path, dimensions, and type of each image entry', async () => {
     const zip = Buffer.from(
       zipSync({
-        'pages/P00001.jpg': new Uint8Array(await solidImage(40, 60).jpeg().toBuffer()),
+        'pages/P00001.jpg': new Uint8Array(await solidImage(40, 60).jpeg()),
         'ComicInfo.xml': strToU8('<ComicInfo />'),
-        'pages/P00002.png': new Uint8Array(await solidImage(20, 10).png().toBuffer()),
+        'pages/P00002.png': new Uint8Array(await solidImage(20, 10).png()),
         'P00003.bmp': new Uint8Array(bmp(7, 9)),
       }),
     );
@@ -40,7 +40,7 @@ describe('readArchiveImageInfo', () => {
   });
 
   it('reports the type from the contents rather than the extension', async () => {
-    const zip = Buffer.from(zipSync({ 'P00001.jpg': new Uint8Array(await solidImage(5, 5).webp().toBuffer()) }));
+    const zip = Buffer.from(zipSync({ 'P00001.jpg': new Uint8Array(await solidImage(5, 5).webp()) }));
 
     expect(await readArchiveImageInfo(zip)).toEqual([{ name: 'P00001.jpg', path: 'P00001.jpg', width: 5, height: 5, type: 'webp' }]);
   });
