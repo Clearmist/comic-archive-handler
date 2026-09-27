@@ -121,6 +121,21 @@ for await (const entry of cah.readArchiveEntries(comicBuffer)) {
 }
 ```
 
+### `readArchiveImageInfo(input)`
+
+Returns `{ name, path, width, height, type }` for every image entry in an archive, in archive iteration order. Image entries are identified by extension (see `isImagePath`), and non-image entries are skipped without being read. `name` is the file name without its directory, and `type` is the format detected from the entry's contents rather than its extension (`jpeg`, `png`, `gif`, `webp`, `tiff`, `bmp`, and so on). When an entry's contents are not a readable image, `width`, `height`, and `type` are `null`.
+
+**Options**
+
+- `input: ArchiveInput` - A filesystem path or archive `Buffer`.
+
+**Example**
+
+```js
+const images = await cah.readArchiveImageInfo(comicBuffer);
+console.log(images[0]); // { name: 'P00001.jpg', path: 'pages/P00001.jpg', width: 1988, height: 3056, type: 'jpeg' }
+```
+
 ### `renameArchiveImagesSequentially(input, options?)`
 
 Renames image entries in natural-sort order to `P#####.<extension>`, while leaving other entries unchanged.
@@ -490,6 +505,34 @@ Returns whether an archive entry path has an extension in `IMAGE_EXTENSIONS`.
 if (cah.isImagePath('P00001.jpg')) console.log('page image');
 ```
 
+### `readImageInfo(image)`
+
+Reads an image's format and pixel dimensions from its header without decoding it, returning `{ width, height, type }`. Returns `null` when the buffer is not a readable image.
+
+**Options**
+
+- `image: Buffer` - Image bytes.
+
+**Example**
+
+```js
+const info = await cah.readImageInfo(imageBytes); // { width: 1988, height: 3056, type: 'jpeg' }
+```
+
+### `readImageDimensions(image)`
+
+Like `readImageInfo`, but returns only `{ width, height }`.
+
+**Options**
+
+- `image: Buffer` - Image bytes.
+
+**Example**
+
+```js
+const { width, height } = await cah.readImageDimensions(imageBytes);
+```
+
 ## Perceptual hashing
 
 ### `computeImagePHash(image)`
@@ -677,6 +720,9 @@ The following types are exported for TypeScript consumers.
 - `MetadataValidationResult` - `{ valid: boolean; issues: MetadataValidationIssue[] }`, returned by `validateMetadataXml`.
 - `MetadataValidationIssue` - `{ message: string; line?: number }`.
 - `ExtractArchiveOptions` - `{ tempDir?: string }`.
+- `ArchiveImageInfo` - `{ name, path, width, height, type }`, returned by `readArchiveImageInfo`. `width`, `height`, and `type` are `null` for unreadable images.
+- `ImageDimensions` - `{ width: number; height: number }`.
+- `ImageInfo` - `ImageDimensions & { type: string }`, returned by `readImageInfo`.
 - `WritableArchiveType` - `'zip' | 'tar' | 'asar' | '7z'`.
 - `BenchmarkArchiveOptions` - `{ tempDir?, reportsDir?, creationIterations?, seekSamples?, imageFormats?, image? }`; see [`benchmarkArchive`](#benchmarkarchivefilepath-options).
 - `BenchmarkVariantResult` - One generated variant's stats: `{ archiveType, imageFormat, fileName, filePath, fileSizeBytes, pageCount, avgImageSizeBytes, avgCreationMs, avgSeekMs }`. `avgImageSizeBytes` (average size of one converted page) depends only on `imageFormat`, not `archiveType`.
