@@ -61,4 +61,14 @@ describe('convertArchiveImages', () => {
     expect(files).toContain('ComicInfo.xml');
     expect(files).not.toContain('page1.png');
   });
+
+  it('keeps page order when converting several images at once', async () => {
+    const png = await makeTestPng();
+    const pages = Object.fromEntries(Array.from({ length: 8 }, (_, index) => [`page${index + 1}.png`, new Uint8Array(png)]));
+    const zip = Buffer.from(zipSync(pages));
+    const converted = (await convertArchiveImages(zip, 'webp', { concurrency: 4 })) as Buffer;
+    const files = await listArchiveFiles(converted);
+
+    expect(files).toEqual(Array.from({ length: 8 }, (_, index) => `page${index + 1}.webp`));
+  });
 });

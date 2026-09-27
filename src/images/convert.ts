@@ -1,12 +1,11 @@
 import sharp from 'sharp';
 import { Readable } from 'node:stream';
-import type { ArchiveInput, ImageConvertOptions, ImageOutputFormat } from '../types.js';
+import type { ArchiveInput, ImageConcurrency, ImageConvertOptions, ImageOutputFormat } from '../types.js';
 import { getAdapter } from '../archive/index.js';
 import { detectArchiveType } from '../detect.js';
 import { withOutput } from '../internal/collectOutput.js';
-import { streamToBuffer } from '../internal/streamUtils.js';
+import { convertEntriesConcurrently } from '../internal/convertEntriesConcurrently.js';
 import { isImagePath, getExtension } from './isImage.js';
-import type { ArchiveWriteEntry } from '../archive/types.js';
 import type { ArchiveWriteOptions } from '../types.js';
 
 export async function convertImageBuffer(image: Buffer, format: ImageOutputFormat, options: ImageConvertOptions = {}): Promise<Buffer> {
@@ -47,24 +46,22 @@ function replaceExtension(entryPath: string, format: ImageOutputFormat): string 
 export async function convertArchiveImages(
   input: ArchiveInput,
   format: ImageOutputFormat,
-  options: ImageConvertOptions & ArchiveWriteOptions = {},
+  options: ImageConvertOptions & ArchiveWriteOptions & { concurrency?: ImageConcurrency } = {},
 ): Promise<Buffer | void> {
   const sourceType = await detectArchiveType(input);
   const adapter = getAdapter(sourceType);
-  const { tempDir, output, ...imageOptions } = options;
+  const { tempDir, output, concurrency, ...imageOptions } = options;
+  const entries = convertEntriesConcurrently(
+    adapter.listEntries(input, { tempDir }),
+    (entry) => isImagePath(entry.path) && getExtension(entry.path) !== (format === 'jpg' ? 'jpg' : format),
+    async (entry, buffer) => {
+      const converted = await convertImageBuffer(buffer, format, imageOptions);
 
-  async function* entries(): AsyncGenerator<ArchiveWriteEntry> {
-    for await (const entry of adapter.listEntries(input, { tempDir })) {
-      if (isImagePath(entry.path) && getExtension(entry.path) !== (format === 'jpg' ? 'jpg' : format)) {
-        const buffer = await streamToBuffer(entry.openReadStream());
-        const converted = await convertImageBuffer(buffer, format, imageOptions);
+      return { path: replaceExtension(entry.path, format), size: converted.length, content: Readable.from(converted) };
+    },
+    (entry) => ({ path: entry.path, size: entry.size, content: entry.openReadStream() }),
+    concurrency,
+  );
 
-        yield { path: replaceExtension(entry.path, format), size: converted.length, content: Readable.from(converted) };
-      } else {
-        yield { path: entry.path, size: entry.size, content: entry.openReadStream() };
-      }
-    }
-  }
-
-  return withOutput(output, (destination) => adapter.write(entries(), destination, { tempDir }));
+  return withOutput(output, (destination) => adapter.write(entries, destination, { tempDir }));
 }

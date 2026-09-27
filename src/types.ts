@@ -38,6 +38,13 @@ export interface ImageConvertOptions {
   png?: PngOptions;
 }
 
+/**
+ * How many images an archive operation converts at once. A function is called
+ * again before each conversion starts, so the limit can change while an archive
+ * is being processed. Values below 1 are treated as 1.
+ */
+export type ImageConcurrency = number | (() => number);
+
 /** Shared by every archive-producing operation. */
 export interface ArchiveWriteOptions {
   /**
@@ -55,7 +62,12 @@ export interface ArchiveWriteOptions {
 }
 
 export interface ConvertArchiveOptions extends ArchiveWriteOptions {
-  image?: { format: ImageOutputFormat; options?: ImageConvertOptions };
+  image?: {
+    format: ImageOutputFormat;
+    options?: ImageConvertOptions;
+    /** How many images to convert at once. Defaults to `1`. */
+    concurrency?: ImageConcurrency;
+  };
   /**
    * Replaces the source's embedded comic metadata in the output. The source's
    * `ComicInfo.xml`/`MetronInfo.xml` entries (and, for an asar source, its

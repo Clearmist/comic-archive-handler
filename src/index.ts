@@ -5,6 +5,7 @@ export * from './convertArchive.js';
 export * from './extractArchive.js';
 export * from './metadata/index.js';
 export * from './images/convert.js';
+export * from './images/concurrency.js';
 export * from './images/phash.js';
 export * from './images/dimensions.js';
 export * from './images/isImage.js';
@@ -23,6 +24,7 @@ import { convertArchive } from './convertArchive.js';
 import { extractArchive } from './extractArchive.js';
 import * as metadataApi from './metadata/index.js';
 import { convertImageBuffer, convertArchiveImages } from './images/convert.js';
+import { setImageConcurrency } from './images/concurrency.js';
 import { computeImagePHash, phashToHex, computeArchiveImagePHash, hammingDistance } from './images/phash.js';
 import { IMAGE_EXTENSIONS, isImagePath } from './images/isImage.js';
 import { readImageDimensions, readImageInfo } from './images/dimensions.js';
@@ -49,6 +51,7 @@ const comicArchiveHandler = {
   ...metadataApi,
   convertImageBuffer,
   convertArchiveImages,
+  setImageConcurrency,
   computeImagePHash,
   phashToHex,
   computeArchiveImagePHash,

@@ -58,6 +58,7 @@ Converts an archive to `zip`, `rar`, `tar`, `asar`, or `7z`. Entries are copied 
 - `options.image?: { format: ImageOutputFormat; options?: ImageConvertOptions }` - Re-encode image entries while converting the archive.
 - `options.image.format` - `'webp'`, `'jpg'`, or `'png'`.
 - `options.image.options` - Image format options described under [`convertImageBuffer`](#convertimagebuffer).
+- `options.image.concurrency?: number | (() => number)` - How many images to convert at once. Defaults to `1`. A function is called again before each conversion starts, so the limit can follow the caller's load while the archive is converted. Entry order in the output is unchanged. See [`setImageConcurrency`](#setimageconcurrencythreads) for how this interacts with libuv's threadpool.
 - `options.metadata?: Partial<Record<MetadataSchema, ComicMetadata>>` - Replaces the source's embedded comic metadata. The source's `ComicInfo.xml`/`MetronInfo.xml` entries are dropped (an ASAR source's header metadata is never copied), then each given schema is written as an ASAR header key when the target is `asar`, or as a root-level `ComicInfo.xml`/`MetronInfo.xml` entry otherwise. Without it, an ASAR source's header metadata is not carried into the output.
 
 **Example**
@@ -453,6 +454,7 @@ Re-encodes image entries in an archive and updates their extensions. Non-image e
 - `options.webp`, `options.jpeg`, `options.png` - Format-specific options listed under [`convertImageBuffer`](#convertimagebuffer).
 - `options.tempDir?: string` - Temporary staging directory for ASAR or 7z operations.
 - `options.output?: string | Writable` - Output destination. Without it, returns a `Buffer`.
+- `options.concurrency?: number | (() => number)` - How many images to convert at once, as for `convertArchive`'s `options.image.concurrency`. Defaults to `1`.
 
 **Example**
 
@@ -461,6 +463,22 @@ const webpArchive = await cah.convertArchiveImages(comicBuffer, 'webp', {
   webp: { quality: 92 },
   output: '/books/example-webp.cbz',
 });
+```
+
+### `setImageConcurrency(threads)`
+
+Sets how many libvips threads process each image and returns the value now in effect. The setting is process-wide and covers every image operation in this package. When you already parallelize across images (for example one worker thread per core), pass `1` so each image doesn't also fan out across every core. sharp's default is the CPU core count, except on glibc Linux without jemalloc, where it is already `1`.
+
+Image work runs on libuv's threadpool, which is shared by every worker thread in the process and defaults to 4 threads. To run more than 4 images at once, raise `UV_THREADPOOL_SIZE` before the process first uses the threadpool. Each image in flight (for example each of `convertArchive`'s `options.image.concurrency` conversions) holds one threadpool thread until it finishes, and a single image uses up to `threads` libvips threads on top of that.
+
+**Options**
+
+- `threads: number` - libvips threads per image.
+
+**Example**
+
+```js
+cah.setImageConcurrency(1);
 ```
 
 ### `IMAGE_EXTENSIONS`

@@ -5,7 +5,7 @@ import { getAdapter } from './archive/index.js';
 import { detectArchiveType } from './detect.js';
 import { ArchiveFormatError } from './errors.js';
 import { withOutput } from './internal/collectOutput.js';
-import { streamToBuffer } from './internal/streamUtils.js';
+import { convertEntriesConcurrently } from './internal/convertEntriesConcurrently.js';
 import { convertImageBuffer } from './images/convert.js';
 import { isImagePath, getExtension } from './images/isImage.js';
 import { metadataToXml } from './metadata/index.js';
@@ -35,24 +35,22 @@ export async function convertArchive(
   const metadata = options.metadata;
 
   async function* entries(): AsyncGenerator<ArchiveWriteEntry> {
-    for await (const entry of sourceAdapter.listEntries(input, { tempDir: options.tempDir })) {
-      if (metadata && METADATA_FILE_NAMES.has(entry.path.split('/').pop() ?? '')) {
-        continue;
-      }
+    const imageExtension = image?.format === 'jpg' ? 'jpg' : image?.format;
 
-      if (image && isImagePath(entry.path) && getExtension(entry.path) !== (image.format === 'jpg' ? 'jpg' : image.format)) {
-        const buffer = await streamToBuffer(entry.openReadStream());
-        const converted = await convertImageBuffer(buffer, image.format, image.options);
+    yield* convertEntriesConcurrently(
+      sourceAdapter.listEntries(input, { tempDir: options.tempDir }),
+      (entry) => Boolean(image) && isImagePath(entry.path) && getExtension(entry.path) !== imageExtension,
+      async (entry, buffer) => {
+        const converted = await convertImageBuffer(buffer, image!.format, image!.options);
 
-        yield {
-          path: replaceExtension(entry.path, image.format === 'jpg' ? 'jpg' : image.format),
-          size: converted.length,
-          content: Readable.from(converted),
-        };
-      } else {
-        yield { path: entry.path, size: entry.size, content: entry.openReadStream() };
-      }
-    }
+        return { path: replaceExtension(entry.path, imageExtension!), size: converted.length, content: Readable.from(converted) };
+      },
+      (entry) =>
+        metadata && METADATA_FILE_NAMES.has(entry.path.split('/').pop() ?? '')
+          ? undefined
+          : { path: entry.path, size: entry.size, content: entry.openReadStream() },
+      image?.concurrency,
+    );
 
     if (metadata && targetType !== 'asar') {
       for (const schema of Object.keys(metadata) as MetadataSchema[]) {
