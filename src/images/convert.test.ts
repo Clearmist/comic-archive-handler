@@ -3,7 +3,8 @@ import { Transformer } from '@napi-rs/image';
 import { zipSync } from 'fflate';
 import { convertImageBuffer, convertArchiveImages } from './convert.js';
 import { listArchiveFiles } from '../listFiles.js';
-import { solidImage } from '../internal/testImages.js';
+import { noiseImage, solidImage } from '../internal/testImages.js';
+import { CorruptImageError } from '../errors.js';
 
 async function makeTestPng(): Promise<Buffer> {
   return solidImage(16, 16, { r: 10, g: 200, b: 30 }).png();
@@ -63,7 +64,28 @@ describe('convertImageBuffer', () => {
   });
 });
 
+describe('convertImageBuffer with a corrupt source', () => {
+  it('throws CorruptImageError for a truncated JPEG', async () => {
+    const jpeg = await noiseImage(64, 128).jpeg(90);
+
+    await expect(convertImageBuffer(jpeg.subarray(0, jpeg.length - 100), 'webp')).rejects.toThrow(CorruptImageError);
+  });
+});
+
 describe('convertArchiveImages', () => {
+  it('names the corrupt page when a conversion fails', async () => {
+    const jpeg = await noiseImage(64, 128).jpeg(90);
+    const zip = Buffer.from(
+      zipSync({ 'P00001.jpg': new Uint8Array(jpeg), 'P00002.jpg': new Uint8Array(jpeg.subarray(0, jpeg.length - 100)) }),
+    );
+
+    await expect(convertArchiveImages(zip, 'webp')).rejects.toMatchObject({
+      name: 'CorruptImageError',
+      entryPath: 'P00002.jpg',
+      message: 'P00002.jpg: truncated: the file ends before its end-of-image marker',
+    });
+  });
+
   it('converts every image entry to the target format and renames extensions', async () => {
     const png = await makeTestPng();
     const zip = Buffer.from(zipSync({ 'page1.png': new Uint8Array(png), 'ComicInfo.xml': new Uint8Array(Buffer.from('<ComicInfo/>')) }));

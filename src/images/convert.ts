@@ -3,9 +3,12 @@ import { Readable } from 'node:stream';
 import type { ArchiveInput, AvifOptions, ImageConcurrency, ImageConvertOptions, ImageOutputFormat } from '../types.js';
 import { getAdapter } from '../archive/index.js';
 import { detectArchiveType } from '../detect.js';
+import { CorruptImageError } from '../errors.js';
 import { withOutput } from '../internal/collectOutput.js';
+import { withEntryPath } from '../internal/withEntryPath.js';
 import { convertEntriesConcurrently } from '../internal/convertEntriesConcurrently.js';
 import { isImagePath, getExtension } from './isImage.js';
+import { findDecodedImageProblem, findImageStructureProblem } from './integrity.js';
 import type { ArchiveWriteOptions } from '../types.js';
 
 const CHROMA_SUBSAMPLING: Record<NonNullable<AvifOptions['chromaSubsampling']>, ChromaSubsampling> = {
@@ -19,7 +22,19 @@ function pngCompressionType(level: number): CompressionType {
   return level <= 3 ? CompressionType.Fast : level >= 7 ? CompressionType.Best : CompressionType.Default;
 }
 
+/**
+ * Re-encodes `image` as `format`. Throws `CorruptImageError` rather than
+ * producing a damaged page when the source is corrupt: a JPEG that is
+ * truncated or has bad Huffman tables, or that decodes with a flat grey band
+ * where its image data is missing or corrupt (see `findDecodedImageProblem`).
+ */
 export async function convertImageBuffer(image: Buffer, format: ImageOutputFormat, options: ImageConvertOptions = {}): Promise<Buffer> {
+  const problem = findImageStructureProblem(image) ?? (await findDecodedImageProblem(image));
+
+  if (problem) {
+    throw new CorruptImageError(problem);
+  }
+
   const transformer = new Transformer(image);
 
   if (format === 'webp') {
@@ -67,7 +82,9 @@ export async function convertArchiveImages(
     adapter.listEntries(input, { tempDir }),
     (entry) => isImagePath(entry.path) && getExtension(entry.path) !== (format === 'jpg' ? 'jpg' : format),
     async (entry, buffer) => {
-      const converted = await convertImageBuffer(buffer, format, imageOptions);
+      const converted = await convertImageBuffer(buffer, format, imageOptions).catch((error: unknown) => {
+        throw withEntryPath(error, entry.path);
+      });
 
       return { path: replaceExtension(entry.path, format), size: converted.length, content: Readable.from(converted) };
     },

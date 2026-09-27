@@ -39,3 +39,17 @@ export class NoImagesFoundError extends Error {
     this.name = 'NoImagesFoundError';
   }
 }
+
+export class CorruptImageError extends Error {
+  /** Why the image can't be trusted to convert cleanly. */
+  readonly reason: string;
+  /** The image's path inside its archive, when it came from one. */
+  readonly entryPath?: string;
+
+  constructor(reason: string, entryPath?: string) {
+    super(entryPath ? `${entryPath}: ${reason}` : reason);
+    this.name = 'CorruptImageError';
+    this.reason = reason;
+    this.entryPath = entryPath;
+  }
+}

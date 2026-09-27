@@ -6,6 +6,7 @@ import { detectArchiveType } from './detect.js';
 import { ArchiveFormatError } from './errors.js';
 import { withOutput } from './internal/collectOutput.js';
 import { convertEntriesConcurrently } from './internal/convertEntriesConcurrently.js';
+import { withEntryPath } from './internal/withEntryPath.js';
 import { convertImageBuffer } from './images/convert.js';
 import { isImagePath, getExtension } from './images/isImage.js';
 import { metadataToXml } from './metadata/index.js';
@@ -41,7 +42,9 @@ export async function convertArchive(
       sourceAdapter.listEntries(input, { tempDir: options.tempDir }),
       (entry) => Boolean(image) && isImagePath(entry.path) && getExtension(entry.path) !== imageExtension,
       async (entry, buffer) => {
-        const converted = await convertImageBuffer(buffer, image!.format, image!.options);
+        const converted = await convertImageBuffer(buffer, image!.format, image!.options).catch((error: unknown) => {
+          throw withEntryPath(error, entry.path);
+        });
 
         return { path: replaceExtension(entry.path, imageExtension!), size: converted.length, content: Readable.from(converted) };
       },

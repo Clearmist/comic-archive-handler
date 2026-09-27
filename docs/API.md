@@ -47,7 +47,7 @@ if (await isZip(comicBuffer)) {
 
 ### `convertArchive(input, targetType, options?)`
 
-Converts an archive to `zip`, `rar`, `tar`, `asar`, or `7z`. Entries are copied as-is unless image conversion is requested. Writing RAR is unsupported and throws `UnsupportedOperationError`. ACE is not supported in either direction: converting an ACE archive to another format, or converting to `'ace'`, both throw `UnsupportedOperationError`.
+Converts an archive to `zip`, `rar`, `tar`, `asar`, or `7z`. Entries are copied as-is unless image conversion is requested. Writing RAR is unsupported and throws `UnsupportedOperationError`. ACE is not supported in either direction: converting an ACE archive to another format, or converting to `'ace'`, both throw `UnsupportedOperationError`. With `options.image`, a page that can't be converted cleanly rejects the whole conversion with a [`CorruptImageError`](#corruptimageerror) naming the page; see [`convertImageBuffer`](#convertimagebuffer).
 
 **Options**
 
@@ -135,6 +135,21 @@ Returns `{ name, path, width, height, type }` for every image entry in an archiv
 ```js
 const images = await cah.readArchiveImageInfo(comicBuffer);
 console.log(images[0]); // { name: 'P00001.jpg', path: 'pages/P00001.jpg', width: 1988, height: 3056, type: 'jpeg' }
+```
+
+### `findCorruptArchiveImages(input)`
+
+Runs [`findImageStructureProblem`](#findimagestructureproblemimage) over every image entry in an archive and returns `{ path, reason }` for each entry with a problem, in archive iteration order. An empty array means every image passed. Image entries are identified by extension (see `isImagePath`), and non-image entries are skipped without being read. It doesn't decode any pixels, so it is cheap enough to run before accepting an archive for image conversion. Damage inside a JPEG's image data is only found by decoding, which `convertImageBuffer` does as it converts.
+
+**Options**
+
+- `input: ArchiveInput` - A filesystem path or archive `Buffer`.
+
+**Example**
+
+```js
+const corrupt = await cah.findCorruptArchiveImages('/books/example.cbz');
+console.log(corrupt); // [{ path: 'P00002.jpg', reason: 'truncated: the file ends before its end-of-image marker' }]
 ```
 
 ### `renameArchiveImagesSequentially(input, options?)`
@@ -421,7 +436,7 @@ const withoutMetronInfo = await cah.removeComicMetadata(comicBuffer, 'MetronInfo
 
 ### `convertImageBuffer(image, format, options?)`
 
-Re-encodes an image `Buffer` as WebP, AVIF, JPEG, or PNG.
+Re-encodes an image `Buffer` as WebP, AVIF, JPEG, or PNG. Throws [`CorruptImageError`](#corruptimageerror) instead of writing a damaged page when a JPEG source is corrupt: when [`findImageStructureProblem`](#findimagestructureproblemimage) or [`findDecodedImageProblem`](#finddecodedimageproblemimage) reports a problem. That costs a JPEG source one extra decode.
 
 **Options**
 
@@ -458,6 +473,8 @@ Re-encodes image entries in an archive and updates their extensions. Non-image e
 - `options.tempDir?: string` - Temporary staging directory for ASAR or 7z operations.
 - `options.output?: string | Writable` - Output destination. Without it, returns a `Buffer`.
 - `options.concurrency?: number | (() => number)` - How many images to convert at once, as for `convertArchive`'s `options.image.concurrency`. Defaults to `1`.
+
+A page that can't be converted cleanly rejects the whole conversion with a [`CorruptImageError`](#corruptimageerror) whose `entryPath` names the page.
 
 **Example**
 
@@ -523,6 +540,37 @@ Reads an image's format and pixel dimensions from its header without decoding it
 ```js
 const info = await cah.readImageInfo(imageBytes); // { width: 1988, height: 3056, type: 'jpeg' }
 ```
+
+### `findImageStructureProblem(image)`
+
+Checks an image's structure without decoding any pixels, and returns a description of the first problem found, or `null` when there is none. Only JPEG is checked: a file that ends before its end-of-image marker (a truncated download or copy), a segment that runs past the end of the file, or a Huffman table the decoder would reject. Other formats return `null`. Stray bytes between segments and data after the end-of-image marker are tolerated, as decoders do. Takes a few milliseconds per page, so it is cheap enough to run over a whole archive; see [`findCorruptArchiveImages`](#findcorruptarchiveimagesinput). `findJpegStructureProblem(image)` is the same check under its JPEG-specific name.
+
+**Options**
+
+- `image: Buffer | Uint8Array` - Image bytes.
+
+**Example**
+
+```js
+cah.findImageStructureProblem(truncatedJpeg); // 'truncated: the file ends before its end-of-image marker'
+```
+
+### `findDecodedImageProblem(image)`
+
+Fully decodes a JPEG and returns a description of the problem, or `null` when there is none. It finds damage that the structure check can't see, such as a bad Huffman code partway through the page. The JPEG decoder doesn't fail on image data it can't decode. It stops and fills the rest of the page with a band that tiles exactly: flat grey (`128`) when the file uses restart markers, or one repeated block otherwise. This function reports a JPEG that can't be decoded at all, a flat grey band of at least 16 rows at the bottom, or a repeated-block band of at least 32 rows. A flat band of any other color isn't reported, since it is as likely to be a page margin, and neither is a page that is flat grey from top to bottom. A page whose genuine artwork ends in a full-width flat `#808080` band, or in a pattern that repeats exactly every 16 pixels both across and down, is reported too. Other formats return `null` without being decoded. Costs a full decode, so it belongs where a page is being decoded anyway; `convertImageBuffer` runs it.
+
+**Options**
+
+- `image: Buffer | Uint8Array` - Image bytes.
+
+**Example**
+
+```js
+await cah.findDecodedImageProblem(damagedJpeg);
+// "the bottom 1599 of 2951 pixel rows are flat grey, the decoder's fill for missing or corrupt image data"
+```
+
+`isJpegBuffer(image)` reports whether a buffer starts with the JPEG start-of-image marker, regardless of any file extension.
 
 ### `readImageDimensions(image)`
 
@@ -728,6 +776,7 @@ The following types are exported for TypeScript consumers.
 - `MetadataValidationIssue` - `{ message: string; line?: number }`.
 - `ExtractArchiveOptions` - `{ tempDir?: string }`.
 - `ArchiveImageInfo` - `{ name, path, width, height, type }`, returned by `readArchiveImageInfo`. `width`, `height`, and `type` are `null` for unreadable images.
+- `CorruptArchiveImage` - `{ path: string; reason: string }`, returned by `findCorruptArchiveImages`.
 - `ImageDimensions` - `{ width: number; height: number }`.
 - `ImageInfo` - `ImageDimensions & { type: string }`, returned by `readImageInfo`.
 - `WritableArchiveType` - `'zip' | 'tar' | 'asar' | '7z'`.
@@ -942,5 +991,24 @@ try {
   await cah.benchmarkArchive('/books/metadata-only.cbz');
 } catch (error) {
   if (error instanceof cah.NoImagesFoundError) console.log('No pages to benchmark');
+}
+```
+
+### `CorruptImageError`
+
+An image can't be converted cleanly because its data is corrupt; see [`convertImageBuffer`](#convertimagebuffer). Thrown by `convertImageBuffer`, `convertArchiveImages`, and `convertArchive` with `options.image`.
+
+**Options**
+
+- `reason: string` - Why the image can't be trusted to convert cleanly.
+- `entryPath?: string` - The image's path inside its archive, when it came from one. The error's `message` is prefixed with it.
+
+**Example**
+
+```js
+try {
+  await cah.convertArchiveImages('/books/example.cbz', 'webp', { output: '/books/example-webp.cbz' });
+} catch (error) {
+  if (error instanceof cah.CorruptImageError) console.log(`${error.entryPath} is corrupt: ${error.reason}`);
 }
 ```

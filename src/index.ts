@@ -8,6 +8,7 @@ export * from './images/convert.js';
 export * from './images/phash.js';
 export * from './images/dimensions.js';
 export * from './images/isImage.js';
+export * from './images/integrity.js';
 export * from './hashing/sha256.js';
 export * from './rename.js';
 export * from './strip.js';
@@ -15,6 +16,7 @@ export * from './listFiles.js';
 export * from './readArchiveEntry.js';
 export * from './readArchiveEntries.js';
 export * from './readArchiveImageInfo.js';
+export * from './findCorruptArchiveImages.js';
 export * from './removeArchiveEntry.js';
 export * from './benchmark/index.js';
 
@@ -33,6 +35,8 @@ import { listArchiveFiles } from './listFiles.js';
 import { readArchiveEntry } from './readArchiveEntry.js';
 import { readArchiveEntries } from './readArchiveEntries.js';
 import { readArchiveImageInfo } from './readArchiveImageInfo.js';
+import { findCorruptArchiveImages } from './findCorruptArchiveImages.js';
+import { isJpegBuffer, findJpegStructureProblem, findImageStructureProblem, findDecodedImageProblem } from './images/integrity.js';
 import { removeArchiveEntry } from './removeArchiveEntry.js';
 import {
   benchmarkArchive,
@@ -65,6 +69,11 @@ const comicArchiveHandler = {
   readArchiveEntry,
   readArchiveEntries,
   readArchiveImageInfo,
+  findCorruptArchiveImages,
+  isJpegBuffer,
+  findJpegStructureProblem,
+  findImageStructureProblem,
+  findDecodedImageProblem,
   removeArchiveEntry,
   benchmarkArchive,
   renderBenchmarkReportMarkdown,
