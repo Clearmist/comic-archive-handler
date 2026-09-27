@@ -3,7 +3,7 @@ import * as fsp from 'node:fs/promises';
 import * as path from 'node:path';
 import { createPackage } from '@electron/asar';
 import type { ArchiveAdapter } from './types.js';
-import { parseAsarHeader } from '../internal/asarHeader.js';
+import { parseAsarHeader, writeAsarHeaderPatch } from '../internal/asarHeader.js';
 import { openInputReadStream, readInputRange } from '../internal/inputSource.js';
 import { resolveWritableTempDir, cleanupTempDir } from '../internal/tempDir.js';
 import { resolveSafeEntryPath } from '../internal/safePath.js';
@@ -61,6 +61,20 @@ export const asarAdapter: ArchiveAdapter = {
       const outputFile = path.join(tempDir, 'output.asar');
 
       await createPackage(stagingDir, outputFile);
+
+      const comicMetadata = options?.comicMetadata;
+
+      if (comicMetadata && Object.keys(comicMetadata).length > 0) {
+        await writeAsarHeaderPatch(
+          outputFile,
+          (header) => {
+            header.comicMetadata = comicMetadata;
+          },
+          { output: destination },
+        );
+
+        return;
+      }
 
       await new Promise<void>((resolve, reject) => {
         const readStream = fs.createReadStream(outputFile);

@@ -58,6 +58,7 @@ Converts an archive to `zip`, `rar`, `tar`, `asar`, or `7z`. Entries are copied 
 - `options.image?: { format: ImageOutputFormat; options?: ImageConvertOptions }` - Re-encode image entries while converting the archive.
 - `options.image.format` - `'webp'`, `'jpg'`, or `'png'`.
 - `options.image.options` - Image format options described under [`convertImageBuffer`](#convertimagebuffer).
+- `options.metadata?: Partial<Record<MetadataSchema, ComicMetadata>>` - Replaces the source's embedded comic metadata. The source's `ComicInfo.xml`/`MetronInfo.xml` entries are dropped (an ASAR source's header metadata is never copied), then each given schema is written as an ASAR header key when the target is `asar`, or as a root-level `ComicInfo.xml`/`MetronInfo.xml` entry otherwise. Without it, an ASAR source's header metadata is not carried into the output.
 
 **Example**
 
@@ -68,6 +69,10 @@ const output = await convertArchive('/books/example.cbr', 'zip', {
   output: '/books/example.cbz',
   image: { format: 'webp', options: { webp: { quality: 92 } } },
 });
+
+// Move a ComicInfo.xml entry into the ASAR header
+const { metadata } = await readArchiveMetadata('/books/example.cbz', 'ComicInfo');
+await convertArchive('/books/example.cbz', 'asar', { output: '/books/example.cbas', metadata: { ComicInfo: metadata } });
 ```
 
 ### `listArchiveFiles(input)`

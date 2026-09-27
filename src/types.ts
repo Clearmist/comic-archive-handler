@@ -56,6 +56,15 @@ export interface ArchiveWriteOptions {
 
 export interface ConvertArchiveOptions extends ArchiveWriteOptions {
   image?: { format: ImageOutputFormat; options?: ImageConvertOptions };
+  /**
+   * Replaces the source's embedded comic metadata in the output. The source's
+   * `ComicInfo.xml`/`MetronInfo.xml` entries (and, for an asar source, its
+   * header metadata) are dropped, then each schema given here is written the
+   * way the target format stores it: an asar header key, or a root-level
+   * `{schema}.xml` entry for every other format. When omitted, entries are
+   * copied as-is and an asar source's header metadata is not carried over.
+   */
+  metadata?: Partial<Record<MetadataSchema, ComicMetadata>>;
 }
 
 export interface AddMetadataOptions extends ArchiveWriteOptions {

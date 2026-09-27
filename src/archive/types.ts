@@ -1,5 +1,5 @@
 import type { Readable, Writable } from 'node:stream';
-import type { ArchiveInput, ArchiveType } from '../types.js';
+import type { ArchiveInput, ArchiveType, ComicMetadata, MetadataSchema } from '../types.js';
 
 export interface ArchiveEntry {
   path: string;
@@ -16,6 +16,8 @@ export interface ArchiveWriteEntry {
 
 export interface ArchiveAdapterOptions {
   tempDir?: string;
+  /** ASAR writes only: stored as the header's `comicMetadata` object. Ignored by every other adapter. */
+  comicMetadata?: Partial<Record<MetadataSchema, ComicMetadata>>;
 }
 
 export interface ArchiveAdapter {

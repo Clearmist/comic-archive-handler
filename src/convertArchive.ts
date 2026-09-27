@@ -1,5 +1,5 @@
 import { Readable } from 'node:stream';
-import type { ArchiveInput, ArchiveType, ConvertArchiveOptions } from './types.js';
+import type { ArchiveInput, ArchiveType, ConvertArchiveOptions, MetadataSchema } from './types.js';
 import type { ArchiveWriteEntry } from './archive/types.js';
 import { getAdapter } from './archive/index.js';
 import { detectArchiveType } from './detect.js';
@@ -8,6 +8,9 @@ import { withOutput } from './internal/collectOutput.js';
 import { streamToBuffer } from './internal/streamUtils.js';
 import { convertImageBuffer } from './images/convert.js';
 import { isImagePath, getExtension } from './images/isImage.js';
+import { metadataToXml } from './metadata/index.js';
+
+const METADATA_FILE_NAMES = new Set(['ComicInfo.xml', 'MetronInfo.xml']);
 
 function replaceExtension(entryPath: string, format: string): string {
   const withoutExt = entryPath.replace(/\.[^./\\]+$/, '');
@@ -29,9 +32,14 @@ export async function convertArchive(
   const sourceAdapter = getAdapter(sourceType);
   const targetAdapter = getAdapter(targetType);
   const image = options.image;
+  const metadata = options.metadata;
 
   async function* entries(): AsyncGenerator<ArchiveWriteEntry> {
     for await (const entry of sourceAdapter.listEntries(input, { tempDir: options.tempDir })) {
+      if (metadata && METADATA_FILE_NAMES.has(entry.path.split('/').pop() ?? '')) {
+        continue;
+      }
+
       if (image && isImagePath(entry.path) && getExtension(entry.path) !== (image.format === 'jpg' ? 'jpg' : image.format)) {
         const buffer = await streamToBuffer(entry.openReadStream());
         const converted = await convertImageBuffer(buffer, image.format, image.options);
@@ -45,7 +53,26 @@ export async function convertArchive(
         yield { path: entry.path, size: entry.size, content: entry.openReadStream() };
       }
     }
+
+    if (metadata && targetType !== 'asar') {
+      for (const schema of Object.keys(metadata) as MetadataSchema[]) {
+        const value = metadata[schema];
+
+        if (!value) {
+          continue;
+        }
+
+        const xml = Buffer.from(metadataToXml(value, schema), 'utf8');
+
+        yield { path: `${schema}.xml`, size: xml.length, content: Readable.from(xml) };
+      }
+    }
   }
 
-  return withOutput(options.output, (destination) => targetAdapter.write(entries(), destination, { tempDir: options.tempDir }));
+  return withOutput(options.output, (destination) =>
+    targetAdapter.write(entries(), destination, {
+      tempDir: options.tempDir,
+      ...(metadata && targetType === 'asar' ? { comicMetadata: metadata } : {}),
+    }),
+  );
 }
