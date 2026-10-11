@@ -2,6 +2,7 @@ import type { ArchiveInput, RenameOptions } from './types.js';
 import type { ArchiveWriteEntry } from './archive/types.js';
 import { getAdapter } from './archive/index.js';
 import { detectArchiveType } from './detect.js';
+import { carriedHeaderProperties } from './internal/asarHeader.js';
 import { withOutput } from './internal/collectOutput.js';
 import { isImagePath, getExtension } from './images/isImage.js';
 import { naturalCompare } from './internal/naturalSort.js';
@@ -52,5 +53,8 @@ export async function renameArchiveImagesSequentially(input: ArchiveInput, optio
     }
   }
 
-  return withOutput(options.output, (destination) => adapter.write(output(), destination, { tempDir: options.tempDir }));
+  // An asar archive keeps its metadata in the header, which a rewrite has to carry over.
+  const carried = await carriedHeaderProperties(input, type);
+
+  return withOutput(options.output, (destination) => adapter.write(output(), destination, { tempDir: options.tempDir, ...carried }));
 }

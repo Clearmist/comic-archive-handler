@@ -62,13 +62,19 @@ export const asarAdapter: ArchiveAdapter = {
 
       await createPackage(stagingDir, outputFile);
 
+      // The file tree is what was just packed; a `files` property handed in is never allowed to replace it.
+      const { files: _files, ...headerProperties } = options?.headerProperties ?? {};
       const comicMetadata = options?.comicMetadata;
 
       if (comicMetadata && Object.keys(comicMetadata).length > 0) {
+        headerProperties.comicMetadata = comicMetadata;
+      }
+
+      if (Object.keys(headerProperties).length > 0) {
         await writeAsarHeaderPatch(
           outputFile,
           (header) => {
-            header.comicMetadata = comicMetadata;
+            Object.assign(header, headerProperties);
           },
           { output: destination },
         );

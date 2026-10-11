@@ -5,7 +5,7 @@ import type { ArchiveWriteEntry } from '../archive/types.js';
 import { detectArchiveType } from '../detect.js';
 import { ArchiveFormatError } from '../errors.js';
 import { withOutput } from '../internal/collectOutput.js';
-import { parseAsarHeader, writeAsarHeaderPatch } from '../internal/asarHeader.js';
+import { parseAsarHeader, readAsarHeaderProperties, writeAsarHeaderPatch } from '../internal/asarHeader.js';
 import { readInputRange } from '../internal/inputSource.js';
 import { removeArchiveEntry } from '../removeArchiveEntry.js';
 import { streamToBuffer } from '../internal/streamUtils.js';
@@ -203,6 +203,60 @@ export async function addMetadataToArchive(
   }
 
   return withOutput(options.output, (destination) => adapter.write(entries(), destination, { tempDir: options.tempDir }));
+}
+
+const RESERVED_HEADER_PROPERTIES = new Set(['files', 'comicMetadata']);
+
+function assertHeaderProperty(key: string): void {
+  if (RESERVED_HEADER_PROPERTIES.has(key)) {
+    throw new ArchiveFormatError(`"${key}" is a reserved asar header property.`);
+  }
+}
+
+/**
+ * Reads an application-defined property from an asar archive's header: a
+ * place for data about the archive that neither metadata schema has a field
+ * for. `undefined` when the archive isn't asar or has no such property.
+ */
+export async function readAsarHeaderProperty(input: ArchiveInput, key: string): Promise<unknown> {
+  assertHeaderProperty(key);
+
+  if ((await detectArchiveType(input)) !== 'asar') {
+    return undefined;
+  }
+
+  return (await readAsarHeaderProperties(input))[key];
+}
+
+/**
+ * Sets an application-defined property (any JSON value) in an asar archive's
+ * header, or removes it when `value` is `undefined`. The file tree and
+ * `comicMetadata` are reserved. Throws `ArchiveFormatError` for an archive
+ * that isn't asar: no other container has anywhere to keep it.
+ */
+export async function writeAsarHeaderProperty(
+  input: ArchiveInput,
+  key: string,
+  value: unknown,
+  options: ArchiveWriteOptions = {},
+): Promise<Buffer | void> {
+  assertHeaderProperty(key);
+
+  if ((await detectArchiveType(input)) !== 'asar') {
+    throw new ArchiveFormatError('Only an asar archive has header properties.');
+  }
+
+  return writeAsarHeaderPatch(
+    input,
+    (header) => {
+      if (value === undefined) {
+        delete header[key];
+      } else {
+        header[key] = value;
+      }
+    },
+    options,
+  );
 }
 
 /**

@@ -1,6 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import { zipSync, strToU8 } from 'fflate';
-import { hasComicMetadata, readArchiveMetadata, addMetadataToArchive, removeComicMetadata } from './index.js';
+import {
+  hasComicMetadata,
+  readArchiveMetadata,
+  addMetadataToArchive,
+  removeComicMetadata,
+  readAsarHeaderProperty,
+  writeAsarHeaderProperty,
+} from './index.js';
+import { renameArchiveImagesSequentially } from '../rename.js';
+import { stripNonEssentialFiles } from '../strip.js';
 import { convertArchive } from '../convertArchive.js';
 import { listArchiveFiles } from '../listFiles.js';
 import { ArchiveFormatError } from '../errors.js';
@@ -81,5 +90,40 @@ describe('asar metadata (header-embedded JSON)', () => {
     const asar = await sampleAsar();
 
     await expect(removeComicMetadata(asar, 'ComicInfo')).rejects.toThrow(ArchiveFormatError);
+  });
+
+  it('keeps header metadata and application properties through a page rename, a strip, and an asar to asar conversion', async () => {
+    const asar = await sampleAsar();
+    const withMeta = (await addMetadataToArchive(asar, { title: 'Kept' }, 'ComicInfo')) as Buffer;
+    const stamped = (await writeAsarHeaderProperty(withMeta, 'comicScrapes', [{ service: 'metron', issueId: 12 }])) as Buffer;
+
+    const rewrites = [
+      (await renameArchiveImagesSequentially(stamped)) as Buffer,
+      (await stripNonEssentialFiles(stamped)) as Buffer,
+      (await convertArchive(stamped, 'asar')) as Buffer,
+    ];
+    for (const rewritten of rewrites) {
+      expect((await readArchiveMetadata(rewritten))?.metadata.title).toBe('Kept');
+      expect(await readAsarHeaderProperty(rewritten, 'comicScrapes')).toEqual([{ service: 'metron', issueId: 12 }]);
+    }
+    expect(await listArchiveFiles(rewrites[0]!)).toEqual(['P00001.jpg']);
+  });
+
+  it('reads, replaces, and removes an application header property, and refuses the reserved ones', async () => {
+    const asar = await sampleAsar();
+    expect(await readAsarHeaderProperty(asar, 'comicScrapes')).toBeUndefined();
+
+    const written = (await writeAsarHeaderProperty(asar, 'comicScrapes', { a: 1 })) as Buffer;
+    expect(await readAsarHeaderProperty(written, 'comicScrapes')).toEqual({ a: 1 });
+    expect(await listArchiveFiles(written)).toEqual(['page1.jpg']);
+
+    const removed = (await writeAsarHeaderProperty(written, 'comicScrapes', undefined)) as Buffer;
+    expect(await readAsarHeaderProperty(removed, 'comicScrapes')).toBeUndefined();
+
+    await expect(writeAsarHeaderProperty(asar, 'files', {})).rejects.toThrow(ArchiveFormatError);
+    await expect(readAsarHeaderProperty(asar, 'comicMetadata')).rejects.toThrow(ArchiveFormatError);
+    const zip = Buffer.from(zipSync({ 'page1.jpg': strToU8('fake-image-bytes') }));
+    expect(await readAsarHeaderProperty(zip, 'comicScrapes')).toBeUndefined();
+    await expect(writeAsarHeaderProperty(zip, 'comicScrapes', 1)).rejects.toThrow(ArchiveFormatError);
   });
 });

@@ -3,6 +3,7 @@ import type { ArchiveWriteEntry } from './archive/types.js';
 import { getAdapter } from './archive/index.js';
 import { detectArchiveType } from './detect.js';
 import { MetadataNotFoundError } from './errors.js';
+import { carriedHeaderProperties } from './internal/asarHeader.js';
 import { withOutput } from './internal/collectOutput.js';
 
 export async function removeArchiveEntry(input: ArchiveInput, entryPath: string, options: RemoveEntryOptions = {}): Promise<Buffer | void> {
@@ -32,5 +33,8 @@ export async function removeArchiveEntry(input: ArchiveInput, entryPath: string,
     }
   }
 
-  return withOutput(options.output, (destination) => adapter.write(output(), destination, { tempDir: options.tempDir }));
+  // An asar archive keeps its metadata in the header, which a rewrite has to carry over.
+  const carried = await carriedHeaderProperties(input, type);
+
+  return withOutput(options.output, (destination) => adapter.write(output(), destination, { tempDir: options.tempDir, ...carried }));
 }

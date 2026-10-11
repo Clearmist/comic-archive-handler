@@ -4,6 +4,7 @@ import type { ArchiveWriteEntry } from './archive/types.js';
 import { getAdapter } from './archive/index.js';
 import { detectArchiveType } from './detect.js';
 import { ArchiveFormatError } from './errors.js';
+import { carriedHeaderProperties } from './internal/asarHeader.js';
 import { withOutput } from './internal/collectOutput.js';
 import { convertEntriesConcurrently } from './internal/convertEntriesConcurrently.js';
 import { withEntryPath } from './internal/withEntryPath.js';
@@ -70,9 +71,13 @@ export async function convertArchive(
     }
   }
 
+  // An asar to asar conversion keeps every header property; `metadata`, when given, still replaces `comicMetadata`.
+  const carried = targetType === 'asar' ? await carriedHeaderProperties(input, sourceType) : {};
+
   return withOutput(options.output, (destination) =>
     targetAdapter.write(entries(), destination, {
       tempDir: options.tempDir,
+      ...carried,
       ...(metadata && targetType === 'asar' ? { comicMetadata: metadata } : {}),
     }),
   );

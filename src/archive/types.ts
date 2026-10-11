@@ -18,6 +18,12 @@ export interface ArchiveAdapterOptions {
   tempDir?: string;
   /** ASAR writes only: stored as the header's `comicMetadata` object. Ignored by every other adapter. */
   comicMetadata?: Partial<Record<MetadataSchema, ComicMetadata>>;
+  /**
+   * ASAR writes only: extra top-level header properties, written next to the
+   * file tree (see `readAsarHeaderProperties`). `comicMetadata`, when also
+   * given, replaces a `comicMetadata` property here. Ignored by every other adapter.
+   */
+  headerProperties?: Record<string, unknown>;
 }
 
 export interface ArchiveAdapter {

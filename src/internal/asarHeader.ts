@@ -100,6 +100,24 @@ function collectFiles(node: AsarHeaderNode, prefix: string, out: AsarFileEntry[]
   }
 }
 
+/**
+ * Every top-level header property besides the file tree: `comicMetadata` and
+ * any application-defined property (see metadata/index.ts's
+ * `writeAsarHeaderProperty`). A rewrite of an asar archive hands these back
+ * to the adapter so nothing kept in the header is lost.
+ */
+export async function readAsarHeaderProperties(input: ArchiveInput): Promise<Record<string, unknown>> {
+  const { header } = await parseAsarHeader((start, end) => readInputRange(input, start, end));
+  const { files: _files, ...properties } = header as Record<string, unknown>;
+
+  return properties;
+}
+
+/** The adapter write options that carry an asar source's header properties into its rewrite; `{}` for every other type. */
+export async function carriedHeaderProperties(input: ArchiveInput, type: string): Promise<{ headerProperties?: Record<string, unknown> }> {
+  return type === 'asar' ? { headerProperties: await readAsarHeaderProperties(input) } : {};
+}
+
 /** True if the header's file tree contains an entry at the archive root named `name`. */
 export function hasRootFile(header: unknown, name: string): boolean {
   const root = header as AsarHeaderNode;
