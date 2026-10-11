@@ -1,3 +1,4 @@
+import { Writable } from 'node:stream';
 import { describe, it, expect } from 'vitest';
 import { zipSync, strToU8 } from 'fflate';
 import { hasComicMetadata, readArchiveMetadata, addMetadataToArchive } from './index.js';
@@ -42,6 +43,24 @@ describe('metadata detection and insertion', () => {
     const metronInfo = await readArchiveMetadata(withBoth, 'MetronInfo');
     expect(metronInfo?.schema).toBe('MetronInfo');
     expect(metronInfo?.metadata.series).toBe('MI');
+  });
+
+  it('has flushed the whole archive to its output by the time it resolves', async () => {
+    const chunks: Buffer[] = [];
+    // A destination that takes a while to accept each write, as a file on disk does.
+    const output = new Writable({
+      write(chunk: Buffer, _encoding, callback) {
+        setTimeout(() => {
+          chunks.push(chunk);
+          callback();
+        }, 5);
+      },
+    });
+
+    await addMetadataToArchive(sampleZip(), { title: 'Added' }, 'ComicInfo', { output });
+
+    expect(output.writableFinished).toBe(true);
+    expect(await listArchiveFiles(Buffer.concat(chunks))).toContain('ComicInfo.xml');
   });
 
   it('adds a MetronInfo.xml when requested', async () => {

@@ -29,6 +29,12 @@ export const zipAdapter: ArchiveAdapter = {
 
   async write(entries, destination) {
     await new Promise<void>((resolve, reject) => {
+      // Resolving only on 'finish' guarantees every byte, including the
+      // end-of-central-directory record written last, has been flushed before
+      // a caller reads the archive back or renames it into place.
+      destination.on('error', reject);
+      destination.on('finish', resolve);
+
       const zip = new Zip((err, data, final) => {
         if (err) {
           destination.destroy(err);
@@ -42,8 +48,6 @@ export const zipAdapter: ArchiveAdapter = {
 
         if (final) {
           destination.end();
-
-          resolve();
         }
       });
 
