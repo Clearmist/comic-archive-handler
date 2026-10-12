@@ -1,7 +1,8 @@
 import { Writable } from 'node:stream';
 import { describe, it, expect } from 'vitest';
 import { zipSync, strToU8 } from 'fflate';
-import { hasComicMetadata, readArchiveMetadata, addMetadataToArchive } from './index.js';
+import { hasComicMetadata, readArchiveMetadata, addMetadataToArchive, addMetadataSetToArchive } from './index.js';
+import { convertArchive } from '../convertArchive.js';
 import { listArchiveFiles } from '../listFiles.js';
 import { ArchiveFormatError } from '../errors.js';
 
@@ -43,6 +44,34 @@ describe('metadata detection and insertion', () => {
     const metronInfo = await readArchiveMetadata(withBoth, 'MetronInfo');
     expect(metronInfo?.schema).toBe('MetronInfo');
     expect(metronInfo?.metadata.series).toBe('MI');
+  });
+
+  it('addMetadataSetToArchive writes several schemas in one rewrite, replacing the ones already there', async () => {
+    const withComicInfo = (await addMetadataToArchive(sampleZip(), { title: 'Old' }, 'ComicInfo')) as Buffer;
+
+    await expect(addMetadataSetToArchive(withComicInfo, { ComicInfo: { title: 'New' }, MetronInfo: { series: 'MI' } })).rejects.toThrow(
+      'already contains ComicInfo.xml',
+    );
+
+    const withBoth = (await addMetadataSetToArchive(
+      withComicInfo,
+      { ComicInfo: { title: 'New' }, MetronInfo: { series: 'MI' } },
+      { overwrite: true },
+    )) as Buffer;
+    const files = await listArchiveFiles(withBoth);
+
+    expect(files.filter((file) => file.endsWith('.xml'))).toEqual(['ComicInfo.xml', 'MetronInfo.xml']);
+    expect(files).toHaveLength((await listArchiveFiles(withComicInfo)).length + 1);
+    expect((await readArchiveMetadata(withBoth, 'ComicInfo'))?.metadata.title).toBe('New');
+    expect((await readArchiveMetadata(withBoth, 'MetronInfo'))?.metadata.series).toBe('MI');
+  });
+
+  it('addMetadataSetToArchive sets every schema in an asar header at once', async () => {
+    const asar = (await convertArchive(sampleZip(), 'asar')) as Buffer;
+    const withBoth = (await addMetadataSetToArchive(asar, { ComicInfo: { title: 'CI' }, MetronInfo: { series: 'MI' } })) as Buffer;
+
+    expect((await readArchiveMetadata(withBoth, 'ComicInfo'))?.metadata.title).toBe('CI');
+    expect((await readArchiveMetadata(withBoth, 'MetronInfo'))?.metadata.series).toBe('MI');
   });
 
   it('has flushed the whole archive to its output by the time it resolves', async () => {

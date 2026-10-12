@@ -152,7 +152,21 @@ export async function addMetadataToArchive(
   schema: MetadataSchema,
   options: AddMetadataOptions = {},
 ): Promise<Buffer | void> {
+  return addMetadataSetToArchive(input, { [schema]: metadata }, options);
+}
+
+/**
+ * `addMetadataToArchive` for several schemas at once: every schema in
+ * `metadata` is written in one rewrite of the archive, where adding them one
+ * at a time rewrites it once per schema.
+ */
+export async function addMetadataSetToArchive(
+  input: ArchiveInput,
+  metadata: Partial<Record<MetadataSchema, ComicMetadata>>,
+  options: AddMetadataOptions = {},
+): Promise<Buffer | void> {
   const type = await detectArchiveType(input);
+  const schemas = (Object.keys(metadata) as MetadataSchema[]).filter((schema) => metadata[schema] !== undefined);
 
   if (type === 'asar') {
     return writeAsarHeaderPatch(
@@ -162,32 +176,36 @@ export async function addMetadataToArchive(
 
         record.comicMetadata ??= {};
 
-        if (!options.overwrite && record.comicMetadata[schema]) {
-          throw new ArchiveFormatError(`Archive already contains ${schema} metadata; pass { overwrite: true } to replace it.`);
-        }
+        for (const schema of schemas) {
+          if (!options.overwrite && record.comicMetadata[schema]) {
+            throw new ArchiveFormatError(`Archive already contains ${schema} metadata; pass { overwrite: true } to replace it.`);
+          }
 
-        record.comicMetadata[schema] = metadata;
+          record.comicMetadata[schema] = metadata[schema];
+        }
       },
       options,
     );
   }
 
   const adapter = getAdapter(type);
-  const fileName = FILE_NAMES[schema];
-  const xmlBuffer = Buffer.from(metadataToXml(metadata, schema), 'utf8');
+  const xmlByFileName = new Map(
+    schemas.map((schema) => [FILE_NAMES[schema], Buffer.from(metadataToXml(metadata[schema]!, schema), 'utf8')]),
+  );
 
   async function* entries(): AsyncGenerator<ArchiveWriteEntry> {
-    let replaced = false;
+    const replaced = new Set<string>();
 
     for await (const entry of adapter.listEntries(input, { tempDir: options.tempDir })) {
-      const base = entry.path.split('/').pop();
+      const base = entry.path.split('/').pop() ?? '';
+      const xmlBuffer = xmlByFileName.get(base);
 
-      if (base === fileName) {
+      if (xmlBuffer) {
         if (!options.overwrite) {
-          throw new ArchiveFormatError(`Archive already contains ${fileName}; pass { overwrite: true } to replace it.`);
+          throw new ArchiveFormatError(`Archive already contains ${base}; pass { overwrite: true } to replace it.`);
         }
 
-        replaced = true;
+        replaced.add(base);
 
         yield { path: entry.path, size: xmlBuffer.length, content: Readable.from(xmlBuffer) };
 
@@ -197,8 +215,10 @@ export async function addMetadataToArchive(
       yield { path: entry.path, size: entry.size, content: entry.openReadStream() };
     }
 
-    if (!replaced) {
-      yield { path: fileName, size: xmlBuffer.length, content: Readable.from(xmlBuffer) };
+    for (const [fileName, xmlBuffer] of xmlByFileName) {
+      if (!replaced.has(fileName)) {
+        yield { path: fileName, size: xmlBuffer.length, content: Readable.from(xmlBuffer) };
+      }
     }
   }
 

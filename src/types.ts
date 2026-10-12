@@ -87,6 +87,34 @@ export interface ConvertArchiveOptions extends ArchiveWriteOptions {
    * copied as-is and an asar source's header metadata is not carried over.
    */
   metadata?: Partial<Record<MetadataSchema, ComicMetadata>>;
+  /**
+   * Also drops every entry `stripNonEssentialFiles` would, in the same pass:
+   * anything that is not an image or an `.xml` file. `true` uses that
+   * keep-list as it is; `extraKeepExtensions` adds to it.
+   */
+  strip?: boolean | Pick<StripOptions, 'extraKeepExtensions'>;
+  /**
+   * Also renames the image entries to `P#####.<extension>`, in the same pass,
+   * numbered in natural sort order of their names in the source, as
+   * `renameArchiveImagesSequentially` would. `true` uses its defaults.
+   */
+  renameImages?: boolean | Pick<RenameOptions, 'start' | 'pad'>;
+  /**
+   * Called with each entry as it is handed to the target archive, in the
+   * order written, so a caller can learn what the output holds without
+   * reading it back.
+   */
+  onEntry?: (entry: ConvertedArchiveEntry) => void;
+}
+
+/** One entry `convertArchive` wrote to the target archive; see `ConvertArchiveOptions.onEntry`. */
+export interface ConvertedArchiveEntry {
+  /** The entry's path in the target archive. */
+  path: string;
+  /** The entry's path in the source archive. Absent for a metadata file written from `ConvertArchiveOptions.metadata`. */
+  sourcePath?: string;
+  /** Set for an image the conversion re-encoded: the byte size and hex SHA-256 of its new content. An entry without it was copied unchanged. */
+  reencoded?: { size: number; sha256: string };
 }
 
 export interface AddMetadataOptions extends ArchiveWriteOptions {

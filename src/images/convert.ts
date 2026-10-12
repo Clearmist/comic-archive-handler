@@ -29,13 +29,13 @@ function pngCompressionType(level: number): CompressionType {
  * where its image data is missing or corrupt (see `findDecodedImageProblem`).
  */
 export async function convertImageBuffer(image: Buffer, format: ImageOutputFormat, options: ImageConvertOptions = {}): Promise<Buffer> {
-  const problem = findImageStructureProblem(image) ?? (await findDecodedImageProblem(image));
+  // The decoded image check and the encode share one Transformer, which keeps its decoded image, so the page is decoded once.
+  const transformer = new Transformer(image);
+  const problem = findImageStructureProblem(image) ?? (await findDecodedImageProblem(image, transformer));
 
   if (problem) {
     throw new CorruptImageError(problem);
   }
-
-  const transformer = new Transformer(image);
 
   if (format === 'webp') {
     return transformer.webp(options.webp?.quality ?? 92);

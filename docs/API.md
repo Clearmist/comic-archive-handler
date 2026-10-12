@@ -47,7 +47,7 @@ if (await isZip(comicBuffer)) {
 
 ### `convertArchive(input, targetType, options?)`
 
-Converts an archive to `zip`, `rar`, `tar`, `asar`, or `7z`. Entries are copied as-is unless image conversion is requested. Writing RAR is unsupported and throws `UnsupportedOperationError`. ACE is not supported in either direction: converting an ACE archive to another format, or converting to `'ace'`, both throw `UnsupportedOperationError`. With `options.image`, a page that can't be converted cleanly rejects the whole conversion with a [`CorruptImageError`](#corruptimageerror) naming the page; see [`convertImageBuffer`](#convertimagebuffer).
+Converts an archive to `zip`, `rar`, `tar`, `asar`, or `7z`. Entries are copied as-is unless image conversion is requested. Every function that writes a zip stores `jpg`, `jpeg`, `png`, `gif`, `webp` and `avif` entries uncompressed, since their data is already compressed, and deflates everything else. Writing RAR is unsupported and throws `UnsupportedOperationError`. ACE is not supported in either direction: converting an ACE archive to another format, or converting to `'ace'`, both throw `UnsupportedOperationError`. With `options.image`, a page that can't be converted cleanly rejects the whole conversion with a [`CorruptImageError`](#corruptimageerror) naming the page; see [`convertImageBuffer`](#convertimagebuffer).
 
 **Options**
 
@@ -60,6 +60,9 @@ Converts an archive to `zip`, `rar`, `tar`, `asar`, or `7z`. Entries are copied 
 - `options.image.options` - Image format options described under [`convertImageBuffer`](#convertimagebuffer).
 - `options.image.concurrency?: number | (() => number)` - How many images to convert at once. Defaults to `1`. A function is called again before each conversion starts, so the limit can follow the caller's load while the archive is converted. Entry order in the output is unchanged. Image work runs on libuv's threadpool, which is shared by every worker thread in the process and defaults to 4 threads, and each image in flight holds one threadpool thread until it finishes. To run more than 4 images at once, raise `UV_THREADPOOL_SIZE` before the process first uses the threadpool.
 - `options.metadata?: Partial<Record<MetadataSchema, ComicMetadata>>` - Replaces the source's embedded comic metadata. The source's `ComicInfo.xml`/`MetronInfo.xml` entries are dropped (an ASAR source's header metadata is never copied), then each given schema is written as an ASAR header key when the target is `asar`, or as a root-level `ComicInfo.xml`/`MetronInfo.xml` entry otherwise. Without it, an ASAR source's header metadata is not carried into the output.
+- `options.strip?: boolean | { extraKeepExtensions?: string[] }` - Also drops every entry that is not an image or an XML file, as [`stripNonEssentialFiles`](#stripnonessentialfilesinput-options) would, without a second rewrite of the archive.
+- `options.renameImages?: boolean | { start?: number; pad?: number }` - Also renames the image entries to `P#####.<extension>`, as [`renameArchiveImagesSequentially`](#renamearchiveimagessequentiallyinput-options) would, without a second rewrite of the archive. Pages are numbered in natural sort order of their names in the source, and a re-encoded page gets its new extension.
+- `options.onEntry?: (entry: ConvertedArchiveEntry) => void` - Called with each entry as it is handed to the target archive, in the order written. `entry.path` is its path in the target and `entry.sourcePath` its path in the source, absent for a metadata file written from `options.metadata`. `entry.reencoded` is `{ size, sha256 }` of the new content for an image the conversion re-encoded, and absent for an entry copied unchanged. This tells a caller what the output holds without reading it back.
 
 **Example**
 
@@ -74,6 +77,17 @@ const output = await convertArchive('/books/example.cbr', 'zip', {
 // Move a ComicInfo.xml entry into the ASAR header
 const { metadata } = await readArchiveMetadata('/books/example.cbz', 'ComicInfo');
 await convertArchive('/books/example.cbz', 'asar', { output: '/books/example.cbas', metadata: { ComicInfo: metadata } });
+
+// Convert, clean and renumber in one rewrite, collecting what was written
+const written = [];
+await convertArchive('/books/example.cbr', 'zip', {
+  output: '/books/example.cbz',
+  image: { format: 'webp' },
+  strip: true,
+  renameImages: true,
+  onEntry: (entry) => written.push(entry),
+});
+// [{ path: 'P00001.webp', sourcePath: 'scan 1.jpg', reencoded: { size: 606890, sha256: '...' } }, ...]
 ```
 
 ### `listArchiveFiles(input)`
@@ -415,6 +429,28 @@ const withMetadata = await cah.addMetadataToArchive(
 );
 ```
 
+### `addMetadataSetToArchive(input, metadata, options?)`
+
+Does what [`addMetadataToArchive`](#addmetadatatoarchiveinput-metadata-schema-options) does for several schemas in one rewrite of the archive. Adding `ComicInfo` and `MetronInfo` one at a time rewrites the archive twice; this writes both at once.
+
+**Options**
+
+- `input: ArchiveInput` - A filesystem path or archive `Buffer`.
+- `metadata: Partial<Record<MetadataSchema, ComicMetadata>>` - The metadata to write, by schema. A schema left out is not touched.
+- `options.overwrite?: boolean` - Replace existing metadata of the given schemas. Defaults to `false`, which rejects when any of them is already present.
+- `options.tempDir?: string` - Temporary staging directory for ASAR, 7z, or RAR operations.
+- `options.output?: string | Writable` - Output destination. Without it, returns a `Buffer`.
+
+**Example**
+
+```js
+await cah.addMetadataSetToArchive(
+  '/books/example.cbz',
+  { ComicInfo: comicInfo, MetronInfo: metronInfo },
+  { overwrite: true, output: '/books/example.new.cbz' },
+);
+```
+
 ### `removeComicMetadata(input, schema, options?)`
 
 Removes the embedded `schema` metadata (a `ComicInfo.xml`/`MetronInfo.xml` entry, or, for asar, the `comicMetadata.{schema}` header key). Throws `ArchiveFormatError` if that schema isn't present. Check `hasComicMetadata` first if you want a no-op instead.
@@ -436,7 +472,7 @@ const withoutMetronInfo = await cah.removeComicMetadata(comicBuffer, 'MetronInfo
 
 ### `convertImageBuffer(image, format, options?)`
 
-Re-encodes an image `Buffer` as WebP, AVIF, JPEG, or PNG. Throws [`CorruptImageError`](#corruptimageerror) instead of writing a damaged page when a JPEG source is corrupt: when [`findImageStructureProblem`](#findimagestructureproblemimage) or [`findDecodedImageProblem`](#finddecodedimageproblemimage) reports a problem. That costs a JPEG source one extra decode.
+Re-encodes an image `Buffer` as WebP, AVIF, JPEG, or PNG. Throws [`CorruptImageError`](#corruptimageerror) instead of writing a damaged page when a JPEG source is corrupt: when [`findImageStructureProblem`](#findimagestructureproblemimage) or [`findDecodedImageProblem`](#finddecodedimageproblemimage-decoder) reports a problem. The decoded check and the encode share one decode of the page.
 
 **Options**
 
@@ -555,13 +591,14 @@ Checks an image's structure without decoding any pixels, and returns a descripti
 cah.findImageStructureProblem(truncatedJpeg); // 'truncated: the file ends before its end-of-image marker'
 ```
 
-### `findDecodedImageProblem(image)`
+### `findDecodedImageProblem(image, decoder?)`
 
 Fully decodes a JPEG and returns a description of the problem, or `null` when there is none. It finds damage that the structure check can't see, such as a bad Huffman code partway through the page. The JPEG decoder doesn't fail on image data it can't decode. It stops and fills the rest of the page with a band that tiles exactly: flat grey (`128`) when the file uses restart markers, or one repeated block otherwise. This function reports a JPEG that can't be decoded at all, a flat grey band of at least 16 rows at the bottom, or a repeated-block band of at least 32 rows. A flat band of any other color isn't reported, since it is as likely to be a page margin, and neither is a page that is flat grey from top to bottom. A page whose genuine artwork ends in a full-width flat `#808080` band, or in a pattern that repeats exactly every 16 pixels both across and down, is reported too. Other formats return `null` without being decoded. Costs a full decode, so it belongs where a page is being decoded anyway; `convertImageBuffer` runs it.
 
 **Options**
 
 - `image: Buffer | Uint8Array` - Image bytes.
+- `decoder?: Transformer` - A `@napi-rs/image` `Transformer` made from `image`. It keeps the image it decodes here, so encoding with the same `Transformer` afterwards does not decode the page again.
 
 **Example**
 
@@ -750,7 +787,8 @@ The following types are exported for TypeScript consumers.
 - `MetadataSchema` - `'ComicInfo' | 'MetronInfo'`.
 - `ImageOutputFormat` - `'webp' | 'avif' | 'jpg' | 'png'`.
 - `ArchiveWriteOptions` - Shared `tempDir?` and `output?` options.
-- `ConvertArchiveOptions` - Archive write options plus `image?: { format, options? }`.
+- `ConvertArchiveOptions` - Archive write options plus `image?: { format, options?, concurrency? }`, `metadata?`, `strip?`, `renameImages?`, and `onEntry?`.
+- `ConvertedArchiveEntry` - `path`, `sourcePath?`, and `reencoded?: { size, sha256 }`; what `onEntry` receives.
 - `AddMetadataOptions` - Archive write options plus `overwrite?: boolean`.
 - `RenameOptions` - Archive write options plus `start?: number` and `pad?: number`.
 - `StripOptions` - Archive write options plus `extraKeepExtensions?: string[]`.

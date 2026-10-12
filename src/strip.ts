@@ -4,14 +4,13 @@ import { getAdapter } from './archive/index.js';
 import { detectArchiveType } from './detect.js';
 import { carriedHeaderProperties } from './internal/asarHeader.js';
 import { withOutput } from './internal/collectOutput.js';
-import { IMAGE_EXTENSIONS, getExtension } from './images/isImage.js';
+import { getExtension } from './images/isImage.js';
+import { essentialExtensions } from './internal/entryCleanup.js';
 
 export async function stripNonEssentialFiles(input: ArchiveInput, options: StripOptions = {}): Promise<Buffer | void> {
   const type = await detectArchiveType(input);
   const adapter = getAdapter(type);
-  const keepExtensions = new Set<string>(
-    [...IMAGE_EXTENSIONS, 'xml', ...(options.extraKeepExtensions ?? [])].map((ext) => ext.toLowerCase()),
-  );
+  const keepExtensions = essentialExtensions(options.extraKeepExtensions);
 
   async function* output(): AsyncGenerator<ArchiveWriteEntry> {
     for await (const entry of adapter.listEntries(input, { tempDir: options.tempDir })) {

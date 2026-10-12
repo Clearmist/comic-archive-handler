@@ -227,8 +227,12 @@ function trailingTiledRows(pixels: Buffer, width: number, height: number): numbe
  * return `null` without being decoded, since their decoders fail outright on
  * damaged data. Costs a full decode, so it belongs where a page is being
  * decoded anyway, such as conversion. Returns `null` for a sound image.
+ *
+ * `decoder`, when given, is a `Transformer` made from `buffer`. It keeps the
+ * image it decodes here, so a caller that goes on to encode with the same
+ * `Transformer` decodes the page once instead of twice.
  */
-export async function findDecodedImageProblem(buffer: Uint8Array): Promise<string | null> {
+export async function findDecodedImageProblem(buffer: Uint8Array, decoder: Transformer = new Transformer(buffer)): Promise<string | null> {
   if (!isJpegBuffer(buffer)) {
     return null;
   }
@@ -238,8 +242,8 @@ export async function findDecodedImageProblem(buffer: Uint8Array): Promise<strin
   let pixels: Buffer;
 
   try {
-    ({ width, height } = await new Transformer(buffer).metadata());
-    pixels = await new Transformer(buffer).rawPixels();
+    ({ width, height } = await decoder.metadata());
+    pixels = await decoder.rawPixels();
   } catch (error) {
     return `could not be decoded: ${error instanceof Error ? error.message : String(error)}`;
   }

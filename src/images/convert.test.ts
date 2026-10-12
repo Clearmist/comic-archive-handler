@@ -72,6 +72,14 @@ describe('convertImageBuffer with a corrupt source', () => {
   });
 });
 
+describe('convertImageBuffer with a JPEG source', () => {
+  it('encodes the same bytes as a conversion that skips the decoded image check', async () => {
+    const jpeg = await noiseImage(64, 64).jpeg(90);
+
+    expect((await convertImageBuffer(jpeg, 'webp')).equals(await new Transformer(jpeg).webp(92))).toBe(true);
+  });
+});
+
 describe('convertArchiveImages', () => {
   it('names the corrupt page when a conversion fails', async () => {
     const jpeg = await noiseImage(64, 128).jpeg(90);
