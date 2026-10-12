@@ -53,7 +53,7 @@ Converts an archive to `zip`, `rar`, `tar`, `asar`, or `7z`. Entries are copied 
 
 - `input: ArchiveInput` - A filesystem path or archive `Buffer`.
 - `targetType: 'zip' | 'rar' | 'tar' | 'asar' | '7z' | 'ace'` - The output container format.
-- `options.tempDir?: string` - Directory for staging operations that need real files, notably ASAR writes and all 7z operations.
+- `options.tempDir?: string` - Directory for staging operations that need real files, notably ASAR writes, all 7z operations, and RAR reads.
 - `options.output?: string | Writable` - Output file path or writable stream. Without it, the function returns `Promise<Buffer>`.
 - `options.image?: { format: ImageOutputFormat; options?: ImageConvertOptions }` - Re-encode image entries while converting the archive.
 - `options.image.format` - `'webp'`, `'avif'`, `'jpg'`, or `'png'`.
@@ -160,7 +160,7 @@ Renames image entries in natural-sort order to `P#####.<extension>`, while leavi
 
 - `options.start?: number` - First page number. Defaults to `1`.
 - `options.pad?: number` - Number of digits in the page number. Defaults to `5`.
-- `options.tempDir?: string` - Temporary staging directory for ASAR or 7z operations.
+- `options.tempDir?: string` - Temporary staging directory for ASAR, 7z, or RAR operations.
 - `options.output?: string | Writable` - Output destination. Without it, returns a `Buffer`.
 
 **Example**
@@ -181,7 +181,7 @@ Extracts every entry in an archive to real files under `destDir`, preserving rel
 
 - `input: ArchiveInput` - A filesystem path or archive `Buffer`.
 - `destDir: string` - Destination directory entries are written under.
-- `options.tempDir?: string` - Temporary staging directory for 7z reads.
+- `options.tempDir?: string` - Temporary staging directory for 7z or RAR reads.
 
 **Example**
 
@@ -197,7 +197,7 @@ Keeps image files and XML files, removing other archive entries such as thumbnai
 **Options**
 
 - `options.extraKeepExtensions?: string[]` - Additional extensions to preserve, without leading dots. Matching is case-insensitive.
-- `options.tempDir?: string` - Temporary staging directory for ASAR or 7z operations.
+- `options.tempDir?: string` - Temporary staging directory for ASAR, 7z, or RAR operations.
 - `options.output?: string | Writable` - Output destination. Without it, returns a `Buffer`.
 
 **Example**
@@ -216,7 +216,7 @@ Removes a single named entry from an archive, leaving every other entry unchange
 
 - `input: ArchiveInput` - A filesystem path or archive `Buffer`.
 - `entryPath: string` - Exact archive entry path to remove.
-- `options.tempDir?: string` - Temporary staging directory for ASAR or 7z operations.
+- `options.tempDir?: string` - Temporary staging directory for ASAR, 7z, or RAR operations.
 - `options.output?: string | Writable` - Output destination. Without it, returns a `Buffer`.
 
 **Example**
@@ -397,7 +397,7 @@ Adds a `ComicInfo.xml` or `MetronInfo.xml` entry to an archive (or, for asar, se
 - `metadata: ComicMetadata` - Metadata to serialize.
 - `schema: 'ComicInfo' | 'MetronInfo'` - Metadata file to create or replace.
 - `options.overwrite?: boolean` - Replace an existing matching file. Defaults to `false`.
-- `options.tempDir?: string` - Temporary staging directory for ASAR or 7z operations.
+- `options.tempDir?: string` - Temporary staging directory for ASAR, 7z, or RAR operations.
 - `options.output?: string | Writable` - Output destination. Without it, returns a `Buffer`.
 
 **Example**
@@ -423,7 +423,7 @@ Removes the embedded `schema` metadata (a `ComicInfo.xml`/`MetronInfo.xml` entry
 
 - `input: ArchiveInput` - A filesystem path or archive `Buffer`.
 - `schema: 'ComicInfo' | 'MetronInfo'` - Metadata to remove.
-- `options.tempDir?: string` - Temporary staging directory for ASAR or 7z operations.
+- `options.tempDir?: string` - Temporary staging directory for ASAR, 7z, or RAR operations.
 - `options.output?: string | Writable` - Output destination. Without it, returns a `Buffer`.
 
 **Example**
@@ -470,7 +470,7 @@ Re-encodes image entries in an archive and updates their extensions. Non-image e
 - `input: ArchiveInput` - A filesystem path or archive `Buffer`.
 - `format: 'webp' | 'avif' | 'jpg' | 'png'` - Output image format.
 - `options.webp`, `options.avif`, `options.jpeg`, `options.png` - Format-specific options listed under [`convertImageBuffer`](#convertimagebuffer).
-- `options.tempDir?: string` - Temporary staging directory for ASAR or 7z operations.
+- `options.tempDir?: string` - Temporary staging directory for ASAR, 7z, or RAR operations.
 - `options.output?: string | Writable` - Output destination. Without it, returns a `Buffer`.
 - `options.concurrency?: number | (() => number)` - How many images to convert at once, as for `convertArchive`'s `options.image.concurrency`. Defaults to `1`.
 
@@ -690,7 +690,7 @@ Throws `ArchiveFormatError` (undetectable format) or `UnsupportedOperationError`
 **Options**
 
 - `filePath: string` - Filesystem path to the source archive.
-- `options.tempDir?: string` - Staging directory for extraction and any asar/7z operations. Defaults to a fresh directory under the OS temp dir.
+- `options.tempDir?: string` - Staging directory for extraction and any asar/7z/rar operations. Defaults to a fresh directory under the OS temp dir.
 - `options.reportsDir?: string` - Directory the dated report subdirectory is created under. Defaults to `./reports` (relative to `process.cwd()`).
 - `options.creationIterations?: number` - Timed creation runs to average per variant. Defaults to `3`, minimum `1`.
 - `options.seekSamples?: number` - Random single-entry reads to average per variant. Defaults to `10`, minimum `1`.
