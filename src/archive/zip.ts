@@ -3,6 +3,7 @@ import { Zip, ZipDeflate, ZipPassThrough } from 'fflate';
 import type { ArchiveAdapter, ArchiveEntry } from './types.js';
 import { parseZipCentralDirectory, readZipEntryData } from '../internal/zipCentralDirectory.js';
 import { getExtension } from '../images/isImage.js';
+import { ZIP_ENTRY_MTIME } from '../internal/entryTime.js';
 
 /**
  * Image formats whose data is already compressed. Deflating them again costs
@@ -63,6 +64,8 @@ export const zipAdapter: ArchiveAdapter = {
       (async () => {
         for await (const entry of entries) {
           const zipFile = STORED_EXTENSIONS.has(getExtension(entry.path)) ? new ZipPassThrough(entry.path) : new ZipDeflate(entry.path);
+          // Without an mtime, fflate stamps the current time, so each write of the same entries would differ.
+          zipFile.mtime = ZIP_ENTRY_MTIME;
 
           zip.add(zipFile);
 

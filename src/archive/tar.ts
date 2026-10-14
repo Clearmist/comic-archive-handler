@@ -3,6 +3,7 @@ import * as tarStream from 'tar-stream';
 import type { ArchiveAdapter } from './types.js';
 import { openInputReadStream } from '../internal/inputSource.js';
 import { streamToBuffer } from '../internal/streamUtils.js';
+import { ENTRY_MTIME } from '../internal/entryTime.js';
 
 /**
  * The tar-stream v3 package is built on `streamx`, not Node's native streams;
@@ -44,7 +45,8 @@ export const tarAdapter: ArchiveAdapter = {
     for await (const entry of entries) {
       const buffer = await streamToBuffer(entry.content);
       await new Promise<void>((resolve, reject) => {
-        pack.entry({ name: entry.path, size: buffer.length }, buffer, (err) => (err ? reject(err) : resolve()));
+        // Without an mtime, tar-stream stamps the current time.
+        pack.entry({ name: entry.path, size: buffer.length, mtime: ENTRY_MTIME }, buffer, (err) => (err ? reject(err) : resolve()));
       });
     }
     pack.finalize();

@@ -8,6 +8,7 @@ import { ArchiveFormatError, SevenZipUnavailableError } from '../errors.js';
 import { inputToBuffer } from '../internal/inputSource.js';
 import { resolveWritableTempDir, cleanupTempDir } from '../internal/tempDir.js';
 import { resolveSafeEntryPath } from '../internal/safePath.js';
+import { ENTRY_MTIME } from '../internal/entryTime.js';
 
 async function ensureBinaryAvailable(): Promise<string> {
   const binPath = sevenBin.path7zzs;
@@ -72,6 +73,28 @@ async function* walkFiles(root: string, prefix = ''): AsyncGenerator<{ absPath: 
 }
 
 /**
+ * Gives every file and folder under `root` the same fixed times and
+ * permissions. 7z stores each one's modification time and attributes as the
+ * filesystem reports them, so without this the same entries staged at a
+ * different time, or under a different umask, would produce a different
+ * archive. Folders are done after their contents, since writing into a
+ * folder updates its own modification time.
+ */
+async function normalizeStagedTree(root: string): Promise<void> {
+  const dirents = await fsp.readdir(root, { withFileTypes: true });
+  for (const dirent of dirents) {
+    const target = path.join(root, dirent.name);
+    if (dirent.isDirectory()) {
+      await normalizeStagedTree(target);
+      await fsp.chmod(target, 0o755);
+    } else {
+      await fsp.chmod(target, 0o644);
+    }
+    await fsp.utimes(target, ENTRY_MTIME, ENTRY_MTIME);
+  }
+}
+
+/**
  * Both directions round-trip through a staging directory: the 7z CLI
  * operates on real files, not stdin/stdout, for multi-file archives. Entries
  * are still streamed to/from disk one at a time rather than collected into
@@ -123,6 +146,8 @@ export const sevenZipAdapter: ArchiveAdapter = {
           entry.content.pipe(out);
         });
       }
+
+      await normalizeStagedTree(stagingDir);
 
       const outputFile = path.join(tempDir, 'output.7z');
       await run7z(binPath, ['a', '-y', outputFile, '*', '-r'], { cwd: stagingDir });
