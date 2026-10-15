@@ -21,6 +21,8 @@ A toolkit for detecting, converting, and manipulating comic book archives (CBAS/
 npm install @clearmist-labs/comic-archive-handler
 ```
 
+Requires Node.js 22.18.0 or later.
+
 ## Usage
 
 ```js
@@ -28,7 +30,7 @@ import fs from 'node:fs/promises';
 import cah from '@clearmist-labs/comic-archive-handler';
 // or: import { detectArchiveType, convertArchive } from '@clearmist-labs/comic-archive-handler';
 
-/* Convert a cbz to cba buffer */
+/* Convert a cbz to cbas buffer */
 const type = await cah.detectArchiveType('/path/to/comic.cbz'); // 'zip'
 const asarBuffer = await cah.convertArchive('/path/to/comic.cbz', 'asar');
 
@@ -55,7 +57,7 @@ const pageHash = await cah.sha256ArchiveEntry(webp, 'P00001.webp');
 const phash = await cah.computeArchiveImagePHash(webp, 'P00001.webp'); // 64-bit bigint
 
 /* Write the buffer to disk */
-await fs.writeFile('/path/to/output.cba', webp);
+await fs.writeFile('/path/to/output.cbas', webp);
 ```
 
 ### Streaming large archives to disk
@@ -85,14 +87,16 @@ Most runtime exports are available both as named exports and as properties on th
 
 ### Archive containers
 
-| Format | Extension | Detectable | Readable | Streaming read | Readable<br>without<br>decompression |
-| ------ | --------- | ---------- | -------- | -------------- | ------------------------------------ |
-| Asar   | .cbas     | ✅         | ✅       | ✅             | ✅                                   |
-| Tar    | .cbt      | ✅         | ✅       | ✅             | ✅                                   |
-| Zip    | .cbz      | ✅         | ✅       | ✅             | ❌                                   |
-| 7z     | .cb7      | ✅         | ✅       | ❌             | ❌                                   |
-| Rar    | .cbr      | ✅         | ✅       | ❌             | ❌                                   |
-| Ace    | .cba      | ✅         | ❌       | ❌             | ❌                                   |
+| Format | Extension | Detectable | Readable | Writable | Streaming read | Readable<br>without<br>decompression |
+| ------ | --------- | ---------- | -------- | -------- | -------------- | ------------------------------------ |
+| Asar   | .cbas     | ✅         | ✅       | ✅       | ✅             | ✅                                   |
+| Tar    | .cbt      | ✅         | ✅       | ✅       | ✅             | ✅                                   |
+| Zip    | .cbz      | ✅         | ✅       | ✅       | ✅             | ✅ \*                                |
+| 7z     | .cb7      | ✅         | ✅       | ✅       | ❌             | ❌                                   |
+| Rar    | .cbr      | ✅         | ✅       | ❌       | ❌             | ❌                                   |
+| Ace    | .cba      | ✅         | ❌       | ❌       | ❌             | ❌                                   |
+
+\* Only for entries stored without compression. Zip archives written by this tool store image entries (webp, avif, jpg, jpeg, png, gif) uncompressed so their pages can be read without decompression. Deflated entries must be decompressed first.
 
 **Ace** is a dead format and should never be used.
 
@@ -100,29 +104,32 @@ Most runtime exports are available both as named exports and as properties on th
 
 **7z** has the smallest storage size, but reading and writing have the largest overhead and it's not possible to stream read the contents; the entire archive must first be decompressed.
 
-**Zip** is the most common format and is widely supported, but its random read speed is terrible; even worse than 7z and the file contents must be decompressed before serving.
+**Zip** is the most common format and is widely supported, but its random read speed is terrible; even worse than 7z and the file contents must be decompressed before serving. This tool fixes that issue by _storing_ already compressed images instead of _compressing_ them; making random reads of image files much faster.
+
+- `ZipPassThrough` (stored): webp, avif, jpg, jpeg, png, gif
+- `ZipDeflate` (compressed): bmp, tiff, tif, and everything else
 
 **Asar** and **Tar** are both similar in that they support read streams without requiring decompression. These are the differences:
 
 - For whole archive streaming Tar is the best.
-- For streaming individual content files Asar is the best.
-- Random file read is poor with Tar and excellent with Asar (6ms vs 1ms).
+- For streaming individual content files (pages) Asar is the best.
+- Asar beats tar in random file reads with 1ms (asar) vs 6ms (tar).
 
 This means that both are good candidates for remote digital libraries. Asar if the server sends one page at a time; Tar if the server sends the entire archive contents to the client.
 
 ### Page images
 
-| Format | Detectable | Readable | Writable | Archival quality |
-| ------ | ---------- | -------- | -------- | ---------------- |
-| WebP   | ✅         | ✅       | ✅       | Excellent        |
-| AVIF   | ✅         | ✅       | ✅       | Excellent        |
-| PNG    | ✅         | ✅       | ✅       | Excellent        |
-| JPEG   | ✅         | ✅       | ✅       | Good             |
-| GIF    | ✅         | ✅       | ❌       | Poor             |
-| BMP    | ✅         | ✅       | ❌       | Poor             |
-| TIFF   | ✅         | ✅       | ❌       | Poor             |
+| Format | Detectable | Readable | Writable | Archival quality | Size         |
+| ------ | ---------- | -------- | -------- | ---------------- | ------------ |
+| AVIF   | ✅         | ✅       | ✅       | **Excellent**    | **Smallest** |
+| WebP   | ✅         | ✅       | ✅       | **Excellent**    | **Small**    |
+| PNG    | ✅         | ✅       | ✅       | **Excellent**    | Large        |
+| JPEG   | ✅         | ✅       | ✅       | Good             | Medium       |
+| GIF    | ✅         | ✅       | ❌       | Poor             | Large        |
+| BMP    | ✅         | ✅       | ❌       | Poor             | Very large   |
+| TIFF   | ✅         | ✅       | ❌       | Poor             | Very large   |
 
-The best choice for image quality and size is WebP at quality 90 to 95.
+The best choice for image quality, size, and support availability is WebP at quality 90 to 95.
 
 The best choice for wide compatibility across very old devices is JPG.
 
@@ -142,7 +149,7 @@ GIF, BMP, and TIFF are intentionally not included as writable because of their p
 
 ## Official schemas
 
-These are separate works and are included here to help us validate schemas against the officialy published schemas.
+These are separate works and are included here to help us validate schemas against the officially published schemas.
 
 - [ComicInfo.xml](https://github.com/anansi-project/comicinfo) / MIT
 - [MetronInfo.xml](https://github.com/Metron-Project/metroninfo) / LGPL-2.1
