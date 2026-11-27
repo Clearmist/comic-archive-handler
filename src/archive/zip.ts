@@ -17,8 +17,12 @@ export const zipAdapter: ArchiveAdapter = {
   type: 'zip',
   canWrite: true,
 
-  async *listEntries(input) {
-    const entries = await parseZipCentralDirectory(input);
+  async *listEntries(input, options) {
+    const folders: string[] = [];
+    const entries = await parseZipCentralDirectory(input, folders);
+    for (const folder of folders) {
+      options?.onFolder?.(folder);
+    }
 
     for (const entry of entries) {
       const archiveEntry: ArchiveEntry = {

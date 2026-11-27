@@ -92,7 +92,7 @@ await convertArchive('/books/example.cbr', 'zip', {
 
 ### `listArchiveFiles(input)`
 
-Lists every entry path in an archive, in archive iteration order. It returns paths only; entry contents are not read.
+Lists every file entry path in an archive, in archive iteration order. It returns paths only; entry contents are not read. Folders are never listed; see [`listArchiveFolders`](#listarchivefoldersinput).
 
 **Options**
 
@@ -103,6 +103,17 @@ Lists every entry path in an archive, in archive iteration order. It returns pat
 ```js
 const files = await cah.listArchiveFiles(comicBuffer);
 console.log(files); // ['P00001.jpg', 'ComicInfo.xml', ...]
+```
+
+### `listArchiveFolders(input)`
+
+Lists the path of every folder in an archive, without a trailing `/`, empty folders included where the container records them. Zip, tar, and RAR store a folder as an entry of its own, so an archive written without folder entries only shows its folders through the paths of the files in them. ASAR and 7z always know every folder. For 7z this extracts the archive, as any 7z listing does.
+
+**Example**
+
+```js
+const folders = await cah.listArchiveFolders(comicBuffer);
+console.log(folders); // ['Issue 1', 'Issue 1/Extras', 'Empty']
 ```
 
 ### `readArchiveEntry(input, entryPath)`
@@ -120,13 +131,15 @@ Reads one archive entry and returns its contents as a `Buffer`. Throws `Metadata
 const page = await cah.readArchiveEntry(comicBuffer, 'P00001.jpg');
 ```
 
-### `readArchiveEntries(input)`
+### `readArchiveEntries(input, options?)`
 
 Reads every entry's contents and SHA256 in a single pass over the archive, yielding `{ path, size?, buffer, sha256 }` in archive iteration order. Prefer this over calling `readArchiveEntry`/`sha256ArchiveEntry` once per entry: zip and asar support real random access, but the sequential/CLI-driven formats (rar, 7z, ace, tar) re-scan the archive from the start on every such call: reading every entry that way costs O(n^2) instead of O(n) for those formats. It also avoids reading each entry's data twice (once for the hash, once for the buffer).
 
 **Options**
 
 - `input: ArchiveInput` - A filesystem path or archive `Buffer`.
+- `options.onEntryError?: (entryPath: string, error: unknown) => void` - When given, an entry whose data can't be read is reported here and skipped instead of ending the pass, so the entries after it are still read. An error from the listing itself still ends the pass (see [`findCorruptArchiveImages`](#findcorruptarchiveimagesinput-options)).
+- `options.onFolder?: (folderPath: string) => void` - Called with each folder's path during the same pass, since folders are never yielded as entries. It reports the same folders as [`listArchiveFolders`](#listarchivefoldersinput).
 
 **Example**
 
@@ -151,13 +164,16 @@ const images = await cah.readArchiveImageInfo(comicBuffer);
 console.log(images[0]); // { name: 'P00001.jpg', path: 'pages/P00001.jpg', width: 1988, height: 3056, type: 'jpeg' }
 ```
 
-### `findCorruptArchiveImages(input)`
+### `findCorruptArchiveImages(input, options?)`
 
-Runs [`findImageStructureProblem`](#findimagestructureproblemimage) over every image entry in an archive and returns `{ path, reason }` for each entry with a problem, in archive iteration order. An empty array means every image passed. Image entries are identified by extension (see `isImagePath`), and non-image entries are skipped without being read. It doesn't decode any pixels, so it is cheap enough to run before accepting an archive for image conversion. Damage inside a JPEG's image data is only found by decoding, which `convertImageBuffer` does as it converts.
+Runs [`findImageStructureProblem`](#findimagestructureproblemimage) over every image entry in an archive and returns `{ path, reason }` for each entry with a problem, in archive iteration order. An empty array means every image passed. Image entries are identified by extension (see `isImagePath`), and non-image entries are skipped without being read. Without `options.decode` it doesn't decode any pixels, so it is cheap enough to run before accepting an archive for image conversion. Damage inside a JPEG's image data is only found by decoding.
+
+An entry whose data can't be read out of the archive, such as a zip entry that fails to decompress, is reported with a reason starting `unreadable: ` (see `unreadableEntryReason`), and the entries after it are still checked. An error from the archive's listing itself is thrown: 7z extracts the whole archive before listing it, and a damaged tar header stops the stream, so neither can skip past a bad entry.
 
 **Options**
 
 - `input: ArchiveInput` - A filesystem path or archive `Buffer`.
+- `options.decode?: boolean` - Also decode every image that passes the structure check (see [`findDecodedImageProblem`](#finddecodedimageproblemimage-decoder)), which finds damage inside the image data too. Much slower.
 
 **Example**
 
@@ -220,6 +236,32 @@ Keeps image files and XML files, removing other archive entries such as thumbnai
 const cleaned = await cah.stripNonEssentialFiles(comicBuffer, {
   extraKeepExtensions: ['json'],
 });
+```
+
+### `flattenArchiveFolders(input, options?)`
+
+Moves every entry inside a folder to the root of the archive and leaves root entries unchanged. A nested entry's new name is its folder names and file name joined with `options.separator`, so `Part 1/01.jpg` becomes `Part 1 - 01.jpg` and pages keep their order when sorted by name. When a new name clashes with another entry's name (ignoring case), ` (2)`, ` (3)`, and so on are added before its extension. Root entries are never renamed. Folder entries are not written, so the result has no folders, empty ones included.
+
+**Options**
+
+- `options.separator?: string` - Joins the folder names and file name. Defaults to `' - '`.
+- `options.tempDir?: string` - Temporary staging directory for ASAR, 7z, or RAR operations.
+- `options.output?: string | Writable` - Output destination. Without it, returns a `Buffer`.
+
+**Example**
+
+```js
+const flattened = await cah.flattenArchiveFolders(comicBuffer);
+// 'Issue 1/01.jpg' becomes 'Issue 1 - 01.jpg'
+```
+
+### `flattenedEntryPaths(entryPaths, separator?)`
+
+Returns a `Map` from each entry path to the root-level name `flattenArchiveFolders` gives it, without reading or writing an archive.
+
+```js
+cah.flattenedEntryPaths(['ComicInfo.xml', 'Issue 1/01.jpg']);
+// Map { 'ComicInfo.xml' => 'ComicInfo.xml', 'Issue 1/01.jpg' => 'Issue 1 - 01.jpg' }
 ```
 
 ### `removeArchiveEntry(input, entryPath, options?)`
@@ -579,7 +621,7 @@ const info = await cah.readImageInfo(imageBytes); // { width: 1988, height: 3056
 
 ### `findImageStructureProblem(image)`
 
-Checks an image's structure without decoding any pixels, and returns a description of the first problem found, or `null` when there is none. Only JPEG is checked: a file that ends before its end-of-image marker (a truncated download or copy), a segment that runs past the end of the file, or a Huffman table the decoder would reject. Other formats return `null`. Stray bytes between segments and data after the end-of-image marker are tolerated, as decoders do. Takes a few milliseconds per page, so it is cheap enough to run over a whole archive; see [`findCorruptArchiveImages`](#findcorruptarchiveimagesinput). `findJpegStructureProblem(image)` is the same check under its JPEG-specific name.
+Checks an image's structure without decoding any pixels, and returns a description of the first problem found, or `null` when there is none. Only JPEG is checked: a file that ends before its end-of-image marker (a truncated download or copy), a segment that runs past the end of the file, or a Huffman table the decoder would reject. Other formats return `null`. Stray bytes between segments and data after the end-of-image marker are tolerated, as decoders do. Takes a few milliseconds per page, so it is cheap enough to run over a whole archive; see [`findCorruptArchiveImages`](#findcorruptarchiveimagesinput-options). `findJpegStructureProblem(image)` is the same check under its JPEG-specific name.
 
 **Options**
 
@@ -792,6 +834,7 @@ The following types are exported for TypeScript consumers.
 - `AddMetadataOptions` - Archive write options plus `overwrite?: boolean`.
 - `RenameOptions` - Archive write options plus `start?: number` and `pad?: number`.
 - `StripOptions` - Archive write options plus `extraKeepExtensions?: string[]`.
+- `FlattenOptions` - Archive write options plus `separator?: string`.
 - `RemoveEntryOptions` - Archive write options (no additional fields).
 - `ImageConvertOptions` - `webp?`, `avif?`, `jpeg?`, and `png?` format option groups.
 - `WebpOptions` - `quality?`.

@@ -60,12 +60,18 @@ function run7z(binPath: string, args: string[], options: { cwd: string }): Promi
   });
 }
 
-async function* walkFiles(root: string, prefix = ''): AsyncGenerator<{ absPath: string; relPath: string }> {
+/** Every file under `root`; `onFolder` is called with each folder's relative path. */
+async function* walkFiles(
+  root: string,
+  prefix = '',
+  onFolder?: (folderPath: string) => void,
+): AsyncGenerator<{ absPath: string; relPath: string }> {
   const dirents = await fsp.readdir(path.join(root, prefix), { withFileTypes: true });
   for (const dirent of dirents) {
     const relPath = prefix ? `${prefix}/${dirent.name}` : dirent.name;
     if (dirent.isDirectory()) {
-      yield* walkFiles(root, relPath);
+      onFolder?.(relPath);
+      yield* walkFiles(root, relPath, onFolder);
     } else if (dirent.isFile()) {
       yield { absPath: path.join(root, relPath), relPath };
     }
@@ -115,7 +121,7 @@ export const sevenZipAdapter: ArchiveAdapter = {
       await fsp.mkdir(extractDir, { recursive: true });
       await run7z(binPath, ['x', archivePath, `-o${extractDir}`, '-y'], { cwd: tempDir });
 
-      for await (const { absPath, relPath } of walkFiles(extractDir)) {
+      for await (const { absPath, relPath } of walkFiles(extractDir, '', options?.onFolder)) {
         const stat = await fsp.stat(absPath);
         yield {
           path: relPath,

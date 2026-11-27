@@ -128,6 +128,7 @@ export const rarAdapter: ArchiveAdapter = {
 
       for (const [index, header] of headers.entries()) {
         if (header.flags.directory) {
+          options?.onFolder?.(header.name.replace(/\\/g, '/').replace(/\/+$/, ''));
           continue;
         }
         yield {

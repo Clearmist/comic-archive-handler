@@ -128,7 +128,8 @@ function readZip64ExtraField(
  * any order at O(1) cost each rather than needing a forward scan through
  * every entry that precedes the one wanted.
  */
-export async function parseZipCentralDirectory(input: ArchiveInput): Promise<ZipCentralDirectoryEntry[]> {
+/** `folders`, when given, receives the path (without its trailing `/`) of every folder entry, which is left out of the result. */
+export async function parseZipCentralDirectory(input: ArchiveInput, folders?: string[]): Promise<ZipCentralDirectoryEntry[]> {
   const { record: eocd, offset: eocdOffset } = await findEndOfCentralDirectory(input);
 
   let totalEntries = eocd.readUInt16LE(10);
@@ -175,6 +176,8 @@ export async function parseZipCentralDirectory(input: ArchiveInput): Promise<Zip
 
     if (!name.endsWith('/')) {
       entries.push({ path: name, compressedSize, uncompressedSize, compressionMethod, localHeaderOffset });
+    } else {
+      folders?.push(name.replace(/\/+$/, ''));
     }
 
     pos += 46 + nameLength + extraLength + commentLength;

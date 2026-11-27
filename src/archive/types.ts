@@ -16,6 +16,13 @@ export interface ArchiveWriteEntry {
 
 export interface ArchiveAdapterOptions {
   tempDir?: string;
+  /**
+   * Listing only: called with each folder's path (no trailing `/`), since
+   * folders are never yielded as entries. An empty folder is reported only
+   * when the archive records it: zip, tar, and rar store folders as entries
+   * of their own, asar and 7z always know every folder.
+   */
+  onFolder?: (folderPath: string) => void;
   /** ASAR writes only: stored as the header's `comicMetadata` object. Ignored by every other adapter. */
   comicMetadata?: Partial<Record<MetadataSchema, ComicMetadata>>;
   /**

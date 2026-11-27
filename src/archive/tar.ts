@@ -19,7 +19,7 @@ export const tarAdapter: ArchiveAdapter = {
   type: 'tar',
   canWrite: true,
 
-  async *listEntries(input) {
+  async *listEntries(input, options) {
     const source = openInputReadStream(input);
     const extract = tarStream.extract();
     source.pipe(extract as unknown as NodeJS.WritableStream);
@@ -28,6 +28,7 @@ export const tarAdapter: ArchiveAdapter = {
       const header = entryStream.header;
       const buffer = await streamToBuffer(entryStream as unknown as AsyncIterable<Buffer>);
       if (header.type === 'directory') {
+        options?.onFolder?.(header.name.replace(/\/+$/, ''));
         continue;
       }
       yield {

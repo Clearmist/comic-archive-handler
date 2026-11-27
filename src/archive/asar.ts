@@ -22,8 +22,11 @@ export const asarAdapter: ArchiveAdapter = {
   type: 'asar',
   canWrite: true,
 
-  async *listEntries(input) {
-    const { files, contentOffset } = await parseAsarHeader((start, end) => readInputRange(input, start, end));
+  async *listEntries(input, options) {
+    const { files, folders, contentOffset } = await parseAsarHeader((start, end) => readInputRange(input, start, end));
+    for (const folder of folders) {
+      options?.onFolder?.(folder);
+    }
 
     for (const file of files) {
       const start = contentOffset + file.offset;

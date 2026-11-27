@@ -130,6 +130,11 @@ export interface StripOptions extends ArchiveWriteOptions {
   extraKeepExtensions?: string[];
 }
 
+export interface FlattenOptions extends ArchiveWriteOptions {
+  /** Joins a nested entry's folder names and file name into its new root-level name. Defaults to `' - '`. */
+  separator?: string;
+}
+
 export type RemoveEntryOptions = ArchiveWriteOptions;
 
 export interface ComicCredit {

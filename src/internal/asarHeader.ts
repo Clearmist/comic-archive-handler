@@ -14,6 +14,8 @@ export interface AsarFileEntry {
 export interface AsarHeaderInfo {
   header: unknown;
   files: AsarFileEntry[];
+  /** The path of every folder in the file tree, empty ones included. */
+  folders: string[];
   /** Absolute byte offset in the archive where file content begins. */
   contentOffset: number;
 }
@@ -78,13 +80,14 @@ export async function parseAsarHeader(readRange: (start: number, end: number) =>
 
   const contentOffset = 8 + size;
   const files: AsarFileEntry[] = [];
+  const folders: string[] = [];
 
-  collectFiles(header, '', files);
+  collectFiles(header, '', files, folders);
 
-  return { header, files, contentOffset };
+  return { header, files, folders, contentOffset };
 }
 
-function collectFiles(node: AsarHeaderNode, prefix: string, out: AsarFileEntry[]): void {
+function collectFiles(node: AsarHeaderNode, prefix: string, out: AsarFileEntry[], folders: string[]): void {
   if (!node.files) {
     return;
   }
@@ -93,7 +96,8 @@ function collectFiles(node: AsarHeaderNode, prefix: string, out: AsarFileEntry[]
     const entryPath = prefix ? `${prefix}/${name}` : name;
 
     if (child.files) {
-      collectFiles(child, entryPath, out);
+      folders.push(entryPath);
+      collectFiles(child, entryPath, out, folders);
     } else if (typeof child.offset === 'string' && typeof child.size === 'number') {
       out.push({ path: entryPath, offset: Number(child.offset), size: child.size });
     }
