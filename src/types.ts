@@ -137,6 +137,23 @@ export interface FlattenOptions extends ArchiveWriteOptions {
 
 export type RemoveEntryOptions = ArchiveWriteOptions;
 
+/** One page of a combined archive: the image entry at `path` in the `from` archive; see `combineArchives`. */
+export interface CombinePage {
+  from: 'target' | 'source';
+  path: string;
+}
+
+export interface CombineArchivesOptions extends ArchiveWriteOptions {
+  /** Every page of the output, in order. An image of either archive not listed here is left out. */
+  pages: CombinePage[];
+  /** The container the output is written as. Defaults to the type of the target archive. */
+  targetType?: Exclude<ArchiveType, 'unknown'>;
+  /** First page number. Defaults to `1`. */
+  start?: number;
+  /** Number of digits in the page number. Defaults to `5`. */
+  pad?: number;
+}
+
 export interface ComicCredit {
   name: string;
   role: string;

@@ -203,6 +203,33 @@ const renamed = await cah.renameArchiveImagesSequentially(comicBuffer, {
 // Images become P0000.jpg, P0001.jpg, ...
 ```
 
+### `combineArchives(target, source, options)`
+
+Builds one archive from the pages of two. The pages listed in `options.pages` are written in that order, each renamed to `P#####.<extension>`, followed by every non-image entry of `target` (its `ComicInfo.xml`, for example) unchanged. An image of either archive that `options.pages` doesn't list is left out, as is every non-image entry of `source`. Throws `ArchiveFormatError` when a listed page is missing, is listed twice, or isn't an image.
+
+**Options**
+
+- `target: ArchiveInput` - The archive whose metadata and other entries are kept.
+- `source: ArchiveInput` - The archive pages are taken from as well.
+- `options.pages: { from: 'target' | 'source'; path: string }[]` - Every page of the output, in order.
+- `options.targetType?: ArchiveType` - The container to write. Defaults to the type of `target`. An asar target written as asar keeps its header properties.
+- `options.start?: number` - First page number. Defaults to `1`.
+- `options.pad?: number` - Number of digits in the page number. Defaults to `5`.
+- `options.tempDir?: string` - Temporary staging directory. Both archives' kept entries are staged here before the output is written.
+- `options.output?: string | Writable` - Output destination. Without it, returns a `Buffer`.
+
+**Example**
+
+```js
+await cah.combineArchives('/books/part1.cbz', '/books/part2.cbr', {
+  pages: [
+    { from: 'target', path: 'P00001.jpg' },
+    { from: 'source', path: '001.jpg' },
+  ],
+  output: '/books/combined.cbz',
+});
+```
+
 ### `extractArchive(input, destDir, options?)`
 
 Extracts every entry in an archive to real files under `destDir`, preserving relative paths. `destDir` is created if it doesn't exist. Throws `ArchiveFormatError` for an undetectable format, or `UnsupportedOperationError` for ACE.

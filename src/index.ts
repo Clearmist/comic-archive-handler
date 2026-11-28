@@ -11,6 +11,7 @@ export * from './images/isImage.js';
 export * from './images/integrity.js';
 export * from './hashing/sha256.js';
 export * from './rename.js';
+export * from './combine.js';
 export * from './strip.js';
 export * from './flatten.js';
 export * from './listFiles.js';
@@ -31,6 +32,7 @@ import { IMAGE_EXTENSIONS, isImagePath } from './images/isImage.js';
 import { readImageDimensions, readImageInfo } from './images/dimensions.js';
 import { sha256ArchiveEntry, sha256Archive } from './hashing/sha256.js';
 import { renameArchiveImagesSequentially } from './rename.js';
+import { combineArchives } from './combine.js';
 import { stripNonEssentialFiles } from './strip.js';
 import { flattenArchiveFolders, flattenedEntryPaths } from './flatten.js';
 import { listArchiveFiles, listArchiveFolders } from './listFiles.js';
@@ -66,6 +68,7 @@ const comicArchiveHandler = {
   sha256ArchiveEntry,
   sha256Archive,
   renameArchiveImagesSequentially,
+  combineArchives,
   stripNonEssentialFiles,
   flattenArchiveFolders,
   flattenedEntryPaths,
